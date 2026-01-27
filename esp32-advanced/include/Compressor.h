@@ -44,6 +44,15 @@ class Compressor {
     void loadRuntimeFromEEPROM();
     void saveRuntimeToEEPROM();
 
+    // Maintenance status
+    bool isPump1MaintenanceDue() const { return getPump1RuntimeHours() >= PUMP_MAINTENANCE_HOURS; }
+    bool isPump2MaintenanceDue() const { return getPump2RuntimeHours() >= PUMP_MAINTENANCE_HOURS; }
+    bool isPump1Overdue() const { return getPump1RuntimeHours() >= PUMP_OVERDUE_HOURS; }
+    bool isPump2Overdue() const { return getPump2RuntimeHours() >= PUMP_OVERDUE_HOURS; }
+    bool isMaintenanceDue() const { return isPump1MaintenanceDue() || isPump2MaintenanceDue(); }
+    void resetPump1Runtime();
+    void resetPump2Runtime();
+
   private:
     uint8_t pump1Pin;
     uint8_t pump2Pin;

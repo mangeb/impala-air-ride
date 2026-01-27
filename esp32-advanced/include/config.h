@@ -134,6 +134,10 @@
 #define SERIAL_BAUD_RATE        115200 // ESP32 typically uses higher baud
 #define WATCHDOG_TIMEOUT_S      10     // Watchdog timer in seconds
 
+// Pump maintenance thresholds (hours)
+#define PUMP_MAINTENANCE_HOURS  50.0   // Warn when pump exceeds this runtime
+#define PUMP_OVERDUE_HOURS      100.0  // Critical warning at this runtime
+
 // ============================================
 // EEPROM CONFIGURATION
 // ============================================
