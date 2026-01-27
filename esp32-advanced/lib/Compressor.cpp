@@ -180,3 +180,15 @@ void Compressor::saveRuntimeToEEPROM() {
     EEPROM.put(EEPROM_ADDR_PUMP_HOURS, totalHours);
     EEPROM.commit();
 }
+
+void Compressor::resetPump1Runtime() {
+    pump1RuntimeMs = 0;
+    saveRuntimeToEEPROM();
+    Serial.println("Pump 1 runtime reset - maintenance complete");
+}
+
+void Compressor::resetPump2Runtime() {
+    pump2RuntimeMs = 0;
+    saveRuntimeToEEPROM();
+    Serial.println("Pump 2 runtime reset - maintenance complete");
+}

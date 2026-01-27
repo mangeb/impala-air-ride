@@ -43,6 +43,9 @@ h1{font-size:18px;text-align:center;margin-bottom:15px;color:#ffd700}
 .bag.timeout button{opacity:0.3;pointer-events:none}
 .pump{margin-top:10px;padding:8px;background:#333;border-radius:8px;text-align:center;font-size:12px}
 .pump .runtime{color:#666;font-size:10px;margin-top:4px}
+.pump .maint{color:#ff9800;font-size:11px;margin-top:4px;display:none}
+.pump .maint.due{display:block}
+.pump .maint.overdue{color:#f44336}
 .status{font-size:10px;color:#666;text-align:center;margin-top:8px}
 </style>
 </head>
@@ -70,7 +73,7 @@ h1{font-size:18px;text-align:center;margin-bottom:15px;color:#ffd700}
 <div class="bag" id="bag2"><h3>REAR LEFT</h3><div class="psi" id="b2">--</div><div class="target">Target: <span id="t2">--</span></div><div class="btns"><button class="up" data-b="2" data-d="1">+</button><button class="dn" data-b="2" data-d="-1">-</button></div></div>
 <div class="bag" id="bag3"><h3>REAR RIGHT</h3><div class="psi" id="b3">--</div><div class="target">Target: <span id="t3">--</span></div><div class="btns"><button class="up" data-b="3" data-d="1">+</button><button class="dn" data-b="3" data-d="-1">-</button></div></div>
 </div>
-<div class="pump">Pumps: <span id="pm">--</span><div class="runtime" id="rt"></div></div>
+<div class="pump">Pumps: <span id="pm">--</span><div class="runtime" id="rt"></div><div class="maint" id="mt"></div></div>
 <div class="status">ESP32 Advanced Air Ride Controller</div>
 <script>
 var holdInt=null,holdBag=-1,holdDir=0;
@@ -132,6 +135,8 @@ function upd(){fetch('/s').then(function(r){return r.json()}).then(function(d){
   }
   document.getElementById('pm').textContent=d.pump;
   if(d.runtime){document.getElementById('rt').textContent='Runtime: '+d.runtime}
+  var mtDiv=document.getElementById('mt');
+  if(d.maint){mtDiv.textContent=d.maint;mtDiv.classList.add('due');if(d.maintOverdue){mtDiv.classList.add('overdue')}else{mtDiv.classList.remove('overdue')}}else{mtDiv.classList.remove('due','overdue')}
   // Update level buttons
   document.querySelectorAll('.level button').forEach(function(b,idx){
     if(idx==d.level){b.classList.add('active')}else{b.classList.remove('active')}
@@ -246,6 +251,29 @@ void AirRideWebServer::handleStatus() {
     json += tankLockout ? "true" : "false";
     json += ",\"hasHeight\":";
     json += hasStoredHeight ? "true" : "false";
+
+    // Maintenance status
+    bool p1Due = compressor->isPump1MaintenanceDue();
+    bool p2Due = compressor->isPump2MaintenanceDue();
+    bool p1Overdue = compressor->isPump1Overdue();
+    bool p2Overdue = compressor->isPump2Overdue();
+    if (p1Due || p2Due) {
+        json += ",\"maint\":\"";
+        if (p1Overdue || p2Overdue) {
+            json += "MAINTENANCE OVERDUE: ";
+        } else {
+            json += "Maintenance due: ";
+        }
+        if (p1Due && p2Due) {
+            json += "P1 & P2";
+        } else if (p1Due) {
+            json += "Pump 1";
+        } else {
+            json += "Pump 2";
+        }
+        json += "\",\"maintOverdue\":";
+        json += (p1Overdue || p2Overdue) ? "true" : "false";
+    }
     json += "}";
 
     server.send(200, "application/json", json);

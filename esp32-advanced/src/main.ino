@@ -109,6 +109,23 @@ void setup() {
     // Initial tank reading
     tankPressure = readTankPressureSmoothed();
 
+    // Check for maintenance warnings
+    if (compressor.isMaintenanceDue()) {
+        Serial.println("************************************");
+        if (compressor.isPump1Overdue()) {
+            Serial.println("WARNING: Pump 1 maintenance OVERDUE!");
+        } else if (compressor.isPump1MaintenanceDue()) {
+            Serial.println("NOTICE: Pump 1 maintenance due");
+        }
+        if (compressor.isPump2Overdue()) {
+            Serial.println("WARNING: Pump 2 maintenance OVERDUE!");
+        } else if (compressor.isPump2MaintenanceDue()) {
+            Serial.println("NOTICE: Pump 2 maintenance due");
+        }
+        Serial.println("Use MR1 or MR2 to reset after service");
+        Serial.println("************************************");
+    }
+
     Serial.println("====================================");
     Serial.println("System Ready");
     printHelp();
@@ -297,9 +314,22 @@ void printStatus() {
     // Pump runtime
     Serial.print("Pump Runtime: P1=");
     Serial.print(compressor.getPump1RuntimeHours(), 1);
-    Serial.print("h P2=");
+    Serial.print("h");
+    if (compressor.isPump1Overdue()) {
+        Serial.print(" [OVERDUE!]");
+    } else if (compressor.isPump1MaintenanceDue()) {
+        Serial.print(" [MAINT DUE]");
+    }
+    Serial.print(" P2=");
     Serial.print(compressor.getPump2RuntimeHours(), 1);
-    Serial.println("h");
+    Serial.print("h");
+    if (compressor.isPump2Overdue()) {
+        Serial.println(" [OVERDUE!]");
+    } else if (compressor.isPump2MaintenanceDue()) {
+        Serial.println(" [MAINT DUE]");
+    } else {
+        Serial.println();
+    }
 
     // WiFi status
     Serial.print("WiFi: ");
@@ -351,7 +381,8 @@ void printHelp() {
     Serial.println("Pumps: PA=auto, PO=off, PB=both, P1=pump1, P2=pump2");
     Serial.println("       PT###=set target PSI (e.g. PT120)");
     Serial.println("Level: L0=off, L1=front, L2=rear, L3=all");
-    Serial.println("Memory: MS=save height, MR=restore height");
+    Serial.println("Memory: MS=save height, MH=restore height");
+    Serial.println("Maint:  MR1=reset pump1, MR2=reset pump2 (after service)");
     Serial.println("Status: ?=help, P=print status");
     Serial.print("WiFi: Connect to '");
     Serial.print(WIFI_SSID);
@@ -438,12 +469,22 @@ void processSerialCommand() {
             if (subCmd == 'S' || subCmd == 's') {
                 webServer.saveRideHeight();
                 Serial.println("Ride height saved");
-            } else if (subCmd == 'R' || subCmd == 'r') {
+            } else if (subCmd == 'H' || subCmd == 'h') {
                 if (webServer.hasLastRideHeight()) {
-                    // Restore will be handled by web server's loadRideHeight
                     Serial.println("Restoring ride height...");
                 } else {
                     Serial.println("No saved ride height");
+                }
+            } else if (subCmd == 'R' || subCmd == 'r') {
+                // Maintenance reset: MR1 or MR2
+                while (!Serial.available()) { delay(1); }
+                char pumpNum = Serial.read();
+                if (pumpNum == '1') {
+                    compressor.resetPump1Runtime();
+                } else if (pumpNum == '2') {
+                    compressor.resetPump2Runtime();
+                } else {
+                    Serial.println("Use MR1 or MR2 to reset pump maintenance");
                 }
             }
             break;
