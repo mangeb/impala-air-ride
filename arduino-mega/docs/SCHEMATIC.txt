@@ -1,0 +1,294 @@
+================================================================================
+                    1964 IMPALA AIR RIDE CONTROLLER
+                        ELECTRICAL SCHEMATIC
+              RideTech Big Red 4-Way Manifold Configuration
+                        ARDUINO MEGA 2560 VERSION
+================================================================================
+
+
+POWER SUPPLY
+============
+    Car 12V Battery
+         |
+         +--[Fuse 15A]--+-- 12V to Relay Module (for solenoids & pumps)
+         |              |
+         +--[Fuse 5A]---+-- 12V to Voltage Regulator
+                        |
+                   [7805 or LM2596]
+                        |
+                       5V --> Arduino VIN or 5V pin
+                        |
+                       GND --> Arduino GND
+
+
+ARDUINO MEGA 2560 PINOUT (with WiFi Shield)
+===========================================
+Mega has 54 digital I/O pins and 16 analog inputs.
+WiFi Shield uses: D4 (SD), D10 (SS), D50 (MISO), D51 (MOSI), D52 (SCK), D53 (SS)
+We use pins 22-31 for relays to avoid all conflicts.
+
+                    MEGA 2560
+    +------------------------------------------+
+    |                  [USB]                   |
+    |                                          |
+    | D22 --> FL Inflate    A0 <-- Tank Press  |
+    | D23 --> FL Deflate    A1 <-- FL Pressure |
+    | D24 --> FR Inflate    A2 <-- FR Pressure |
+    | D25 --> FR Deflate    A3 <-- RL Pressure |
+    | D26 --> RL Inflate    A4 <-- RR Pressure |
+    | D27 --> RL Deflate    A5    [unused]     |
+    | D28 --> RR Inflate                       |
+    | D29 --> RR Deflate    D50 \              |
+    | D30 --> Pump 1        D51  | WiFi Shield |
+    | D31 --> Pump 2        D52  | SPI Pins    |
+    |                       D53 /              |
+    |                                          |
+    |  5V -----> Relay VCC                     |
+    | GND -----> Relay GND, Sensor GND         |
+    +------------------------------------------+
+
+    Pin Assignment Summary:
+    -----------------------
+    A0-A4:  VDO Pressure Sensors (with voltage dividers)
+    D22-D29: Solenoid Relays (8 total)
+    D30-D31: Pump Relays (2 total)
+    D50-D53: Reserved for WiFi Shield SPI
+    D4, D10: Reserved for WiFi Shield
+
+
+VDO PRESSURE SENSOR WIRING (x5 sensors)
+=======================================
+Each VDO 10-180 ohm sensor needs a voltage divider circuit:
+
+           +5V (Arduino)
+            |
+            |
+           [R_ref]  <-- 100 ohm 1/4W resistor
+            |
+            +--------> To Arduino Analog Pin (A0-A4)
+            |
+         [VDO Sensor]  <-- Variable resistance 10-180 ohm
+            |              (10 ohm = 0 PSI, 180 ohm = 150 PSI)
+            |
+           GND
+
+
+VOLTAGE DIVIDER CALCULATIONS:
+-----------------------------
+At 0 PSI (10 ohm):    V = 5V × 10/(100+10)   = 0.45V  (ADC: ~92)
+At 75 PSI (95 ohm):   V = 5V × 95/(100+95)   = 2.44V  (ADC: ~499)
+At 150 PSI (180 ohm): V = 5V × 180/(100+180) = 3.21V  (ADC: ~656)
+
+
+COMPLETE SENSOR CIRCUIT (x5)
+============================
+
+     +5V ----+----+----+----+----+
+             |    |    |    |    |
+            100  100  100  100  100  (ohm resistors)
+             |    |    |    |    |
+             |    |    |    |    +--> A0 (Tank)
+             |    |    |    +-------> A1 (FL)
+             |    |    +------------> A2 (FR)
+             |    +-----------------> A3 (RL)
+             +----------------------> A4 (RR)
+             |    |    |    |    |
+            VDO  VDO  VDO  VDO  VDO
+           Tank   FL   FR   RL   RR
+             |    |    |    |    |
+             +----+----+----+----+--> GND
+
+
+RELAY MODULE WIRING (10-Channel Relay Module)
+=============================================
+Need 10 relays: 8 for solenoids + 2 for pumps
+Relay modules are typically ACTIVE LOW (signal LOW = relay ON)
+
+Arduino Mega              Relay Module
+------------              ------------
+  5V  ------------------>  VCC
+  GND ------------------>  GND
+  D22 ------------------>  IN1  (Front Left INFLATE)
+  D23 ------------------>  IN2  (Front Left DEFLATE)
+  D24 ------------------>  IN3  (Front Right INFLATE)
+  D25 ------------------>  IN4  (Front Right DEFLATE)
+  D26 ------------------>  IN5  (Rear Left INFLATE)
+  D27 ------------------>  IN6  (Rear Left DEFLATE)
+  D28 ------------------>  IN7  (Rear Right INFLATE)
+  D29 ------------------>  IN8  (Rear Right DEFLATE)
+  D30 ------------------>  IN9  (Compressor Pump 1)
+  D31 ------------------>  IN10 (Compressor Pump 2)
+
+
+RIDETECH BIG RED MANIFOLD WIRING
+================================
+The Big Red 4-way manifold has 8 solenoid coils (2 per corner)
+
+Manifold Layout (top view):
++-------------------------------------------------------------------------+
+|  [FL INF]  [FL DEF]  [FR INF]  [FR DEF]  [RL INF]  [RL DEF]  [RR INF]  [RR DEF]  |
+|    D22       D23       D24       D25       D26       D27       D28       D29     |
++-------------------------------------------------------------------------+
+|   SUPPLY (from tank)              |              EXHAUST (to atmosphere)         |
++-------------------------------------------------------------------------+
+|        FL DELIVERY    FR DELIVERY    RL DELIVERY    RR DELIVERY                  |
+|         (to bag)       (to bag)       (to bag)       (to bag)                    |
++-------------------------------------------------------------------------+
+
+Port Connections:
+- SUPPLY ports (2x 1/4"): Connect to air tank
+- EXHAUST ports (2x 1/4"): Open to atmosphere (add mufflers for quiet operation)
+- DELIVERY ports (4x 1/4"): Connect to each air bag
+- GAUGE ports (4x 1/8"): Connect to VDO pressure sensors
+
+
+SOLENOID WIRING DETAIL (x8 solenoids)
+=====================================
+RideTech Big Red solenoids are 12V, normally closed
+
+    +12V (Fused)
+        |
+    [Relay NO]----+
+        |         |
+        +---------|<|------+   <-- 1N4007 flyback diode
+        |                  |       (cathode to +12V side)
+   [Solenoid +]      [Solenoid -]
+        |                  |
+        +------------------+
+                |
+               GND
+
+    Each solenoid coil: ~3-5 ohms, draws ~2-4A when energized
+    Use relays rated for at least 5A per channel
+
+
+COMPRESSOR PUMP WIRING (12V pumps x2)
+=====================================
+Higher current than solenoids - use appropriate relay rating
+
+    +12V (Fused - 20A per pump)
+        |
+    [Relay NO]----+
+        |         |
+        +---------|<|------+   <-- 1N4007 flyback diode
+        |                  |
+   [Pump Motor +]    [Pump Motor -]
+        |                  |
+        +------------------+
+                |
+               GND
+
+    Add 100uF capacitor near each pump for noise suppression
+
+
+FULL SYSTEM WIRING DIAGRAM
+==========================
+
+                                    +12V BATTERY
+                                         |
+                    +--------------------+--------------------+
+                    |                    |                    |
+               [15A FUSE]           [20A FUSE x2]        [5A FUSE]
+                    |                    |                    |
+                    v                    v                    v
+            +---------------+    +---------------+    +------------+
+            | 10-CH RELAY   |    | PUMP RELAYS   |    | 5V REG     |
+            | MODULE        |    | (IN9, IN10)   |    | (7805)     |
+            +-------+-------+    +-------+-------+    +-----+------+
+                    |                    |                  |
+    +---------------+---------------+    |                  v
+    |   |   |   |   |   |   |   |   |    |           +------------+
+   FL  FL  FR  FR  RL  RL  RR  RR   |    |           | ARDUINO    |
+  INF DEF INF DEF INF DEF INF DEF  |    |           | MEGA 2560  |
+  D22 D23 D24 D25 D26 D27 D28 D29  |    |           +-----+------+
+   |   |   |   |   |   |   |   |   |    |                 |
+   v   v   v   v   v   v   v   v   |    |                 |
++----------------------------------+    |           +-----+------+
+|     RIDETECH BIG RED MANIFOLD    |    |           | WIFI       |
++----------------------------------+    |           | SHIELD     |
+    |       |       |       |           |           +------------+
+    v       v       v       v           v
+  [FL]    [FR]    [RL]    [RR]     [PUMP1][PUMP2]
+  BAG     BAG     BAG     BAG      D30    D31
+                                     |     |
+                                     v     v
+                                  [AIR TANK]
+
+
+AIR SYSTEM PLUMBING
+===================
+
+    [PUMP 1]----+
+                |
+    [PUMP 2]----+----> [CHECK VALVES] ----> [AIR TANK]
+                                                |
+                                                v
+                                    +---[SUPPLY PORTS]---+
+                                    |                    |
+                                    v                    v
+                         +------------------------+
+                         |   BIG RED MANIFOLD     |
+                         |                        |
+                         | FL   FR   RL   RR      |
+                         +--+----+----+----+------+
+                            |    |    |    |
+                            v    v    v    v
+                          [FL] [FR] [RL] [RR]
+                          BAG  BAG  BAG  BAG
+
+
+PARTS LIST
+==========
+Electronics:
+- 1x Arduino Mega 2560
+- 1x Arduino WiFi Shield (official)
+- 1x 10-Channel Relay Module (5V logic, 10A contacts min)
+- 5x 100 ohm 1/4W resistors (for VDO voltage dividers)
+- 10x 1N4007 diodes (flyback protection)
+- 1x 5V voltage regulator (7805 or LM2596 buck converter)
+- 2x 100uF 25V capacitors (pump noise suppression)
+
+Sensors:
+- 5x VDO 0-150 PSI pressure sensors (10-180 ohm)
+
+Air System:
+- 1x RideTech Big Red 4-Way Manifold (31914000)
+- 4x Air bags (appropriate for 1964 Impala)
+- 2x 12V air compressor pumps
+- 1x Air tank (3-5 gallon recommended)
+- 2x Check valves (one per pump)
+- Air line fittings and tubing (3/8" for main, 1/4" for bags)
+- 2x Exhaust mufflers (optional, for quiet dump)
+
+Electrical:
+- 1x 15A fuse (solenoids)
+- 2x 20A fuse (pumps)
+- 1x 5A fuse (electronics)
+- 14 AWG wire (pumps)
+- 18 AWG wire (solenoids, signals)
+- Weatherpak connectors (for RideTech solenoids)
+- Terminal blocks
+
+
+WIRING COLOR CODE SUGGESTION
+============================
+- RED: +12V power
+- BLACK: Ground
+- ORANGE: Inflate solenoid signals (D22, D24, D26, D28)
+- BLUE: Deflate solenoid signals (D23, D25, D27, D29)
+- GREEN: Pump signals (D30, D31)
+- YELLOW: Sensor signals (A0-A4)
+- WHITE: 5V power
+
+
+NOTES
+=====
+1. All grounds must be connected together (common ground)
+2. Keep sensor wires away from relay/solenoid wires to reduce noise
+3. Use shielded cable for sensor wires if experiencing interference
+4. RideTech Big Red solenoids use Weatherpak connectors
+5. Test relay module polarity - some are active HIGH
+6. Arduino Mega has plenty of pins - no conflicts with WiFi Shield
+7. Pins D22-D31 are grouped together on Mega for easy wiring
+
+================================================================================

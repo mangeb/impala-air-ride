@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Impala Air Ride</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui;background:#1a1a1a;color:#fff;padding:10px}
+h1{font-size:18px;text-align:center;margin-bottom:15px;color:#ffd700}
+.tank{text-align:center;padding:10px;background:#333;border-radius:8px;margin-bottom:15px}
+.tank span{font-size:24px;font-weight:bold}
+.presets{display:flex;gap:8px;margin-bottom:15px}
+.presets button{flex:1;padding:15px;font-size:16px;border:none;border-radius:8px;cursor:pointer;color:#fff}
+.presets button:nth-child(1){background:#2196F3}
+.presets button:nth-child(2){background:#4CAF50}
+.presets button:nth-child(3){background:#ff9800}
+.presets button:active{opacity:0.7}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bag{background:#333;padding:15px;border-radius:8px;text-align:center}
+.bag h3{font-size:14px;margin-bottom:5px}
+.bag .psi{font-size:28px;font-weight:bold;margin:10px 0}
+.bag .btns{display:flex;gap:5px;justify-content:center}
+.bag button{width:50px;height:50px;font-size:24px;border:none;border-radius:8px;cursor:pointer;color:#fff}
+.bag button:active{opacity:0.7}
+.bag .up{background:#4CAF50}
+.bag .dn{background:#f44336}
+.pump{margin-top:15px;padding:10px;background:#333;border-radius:8px;text-align:center}
+.pump span{font-size:12px;color:#888}
+.status{font-size:10px;color:#666;text-align:center;margin-top:10px}
+</style>
+</head>
+<body>
+<h1>🚗 1964 IMPALA AIR RIDE</h1>
+<div class="tank">Tank: <span id="tk">125</span> PSI</div>
+<div class="presets">
+<button onclick="pr(0)">LAY</button>
+<button onclick="pr(1)">CRUISE</button>
+<button onclick="pr(2)">MAX</button>
+</div>
+<div class="grid">
+<div class="bag"><h3>FRONT LEFT</h3><div class="psi" id="b0">80</div><div class="btns"><button class="up" onclick="bg(0,1)">+</button><button class="dn" onclick="bg(0,-1)">−</button></div></div>
+<div class="bag"><h3>FRONT RIGHT</h3><div class="psi" id="b1">80</div><div class="btns"><button class="up" onclick="bg(1,1)">+</button><button class="dn" onclick="bg(1,-1)">−</button></div></div>
+<div class="bag"><h3>REAR LEFT</h3><div class="psi" id="b2">50</div><div class="btns"><button class="up" onclick="bg(2,1)">+</button><button class="dn" onclick="bg(2,-1)">−</button></div></div>
+<div class="bag"><h3>REAR RIGHT</h3><div class="psi" id="b3">50</div><div class="btns"><button class="up" onclick="bg(3,1)">+</button><button class="dn" onclick="bg(3,-1)">−</button></div></div>
+</div>
+<div class="pump">Pumps: <span id="pm">AUTO P1:off P2:ON</span></div>
+<div class="status">ESP32 Air Ride Controller - PREVIEW MODE</div>
+<script>
+// Demo mode - simulates ESP32 responses
+var demoData = {
+    tank: 125,
+    bags: [80, 80, 50, 50],
+    pump: "AUTO P1:off P2:ON"
+};
+
+function bg(b, d) {
+    // Simulate bag inflate/deflate
+    demoData.bags[b] += d * 5;
+    if (demoData.bags[b] < 0) demoData.bags[b] = 0;
+    if (demoData.bags[b] > 150) demoData.bags[b] = 150;
+    upd();
+}
+
+function pr(p) {
+    // Simulate presets
+    var presets = [
+        [0, 0, 0, 0],       // Lay
+        [80, 80, 50, 50],   // Cruise
+        [100, 100, 80, 80]  // Max
+    ];
+    demoData.bags = presets[p].slice();
+    upd();
+}
+
+function upd() {
+    document.getElementById('tk').textContent = demoData.tank.toFixed(0);
+    for (var i = 0; i < 4; i++) {
+        document.getElementById('b' + i).textContent = demoData.bags[i].toFixed(0);
+    }
+    document.getElementById('pm').textContent = demoData.pump;
+}
+
+// Initial update
+upd();
+</script>
+</body>
+</html>
