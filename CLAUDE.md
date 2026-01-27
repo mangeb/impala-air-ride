@@ -28,37 +28,47 @@ Air ride suspension controller for a 1964 Chevrolet Impala with WiFi mobile cont
 
 ```
 ├── arduino-mega/           # Arduino Mega 2560 + WiFi Shield version
-│   ├── src/
-│   │   └── main.ino
+│   ├── src/main.ino
 │   ├── lib/
-│   │   ├── AirBag.cpp
-│   │   ├── Compressor.cpp
-│   │   └── WebServer.cpp
 │   ├── include/
-│   │   ├── config.h
-│   │   ├── AirBag.h
-│   │   ├── Compressor.h
-│   │   └── WebServer.h
-│   └── docs/
-│       └── SCHEMATIC.txt
+│   └── docs/SCHEMATIC.txt
 │
-├── esp32/                  # ESP32 version (built-in WiFi)
-│   ├── src/
-│   │   └── main.ino
+├── esp32/                  # ESP32 basic version (for testing)
+│   ├── src/main.ino
 │   ├── lib/
-│   │   ├── AirBag.cpp
-│   │   ├── Compressor.cpp
-│   │   └── WebServer.cpp
 │   ├── include/
-│   │   ├── config.h
-│   │   ├── AirBag.h
-│   │   ├── Compressor.h
-│   │   └── WebServer.h
 │   └── docs/
-│       └── SCHEMATIC.txt
+│       ├── SCHEMATIC.txt
+│       └── preview.html    # UI preview for browser
+│
+├── esp32-advanced/         # ESP32 advanced version (full features)
+│   ├── src/main.ino
+│   ├── lib/
+│   ├── include/
+│   └── docs/
+│       ├── SCHEMATIC.txt
+│       └── preview.html
 │
 └── CLAUDE.md
 ```
+
+## ESP32 Versions
+
+### Basic (`esp32/`)
+Simple version for initial testing and hardware verification.
+
+### Advanced (`esp32-advanced/`)
+Full-featured version with:
+- **Hold Buttons**: Press and hold +/- for continuous inflate/deflate
+- **Target PSI Display**: Shows current and target pressure for each bag
+- **Ride Height Memory**: Save/restore last position (EEPROM)
+- **Level Mode**: Auto-match left/right pressures (Front, Rear, or All)
+- **Watchdog Timer**: Auto-reset if system hangs
+- **Solenoid Timeout**: 30-second max to prevent overheating
+- **Pressure Smoothing**: ADC averaging for stable readings
+- **OTA Updates**: Wireless firmware updates
+- **Pump Runtime Tracking**: Maintenance scheduling
+- **Tank Lockout**: Hysteresis prevents pump cycling
 
 ## Development Commands
 

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Impala Air Ride - Advanced</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui;background:#1a1a1a;color:#fff;padding:10px;user-select:none;-webkit-user-select:none}
+h1{font-size:18px;text-align:center;margin-bottom:15px;color:#ffd700}
+.tank{text-align:center;padding:10px;background:#333;border-radius:8px;margin-bottom:10px}
+.tank span{font-size:24px;font-weight:bold}
+.tank .lockout{color:#f44336;font-size:12px;display:none}
+.tank.low .lockout{display:block}
+.presets{display:flex;gap:6px;margin-bottom:10px}
+.presets button{flex:1;padding:12px 5px;font-size:14px;border:none;border-radius:8px;cursor:pointer;color:#fff}
+.presets button:nth-child(1){background:#2196F3}
+.presets button:nth-child(2){background:#4CAF50}
+.presets button:nth-child(3){background:#ff9800}
+.presets button:active{opacity:0.7}
+.memory{display:flex;gap:6px;margin-bottom:10px}
+.memory button{flex:1;padding:10px;font-size:12px;border:none;border-radius:8px;cursor:pointer;background:#555;color:#fff}
+.memory button:active{opacity:0.7}
+.memory button.has-data{background:#9c27b0}
+.level{display:flex;gap:6px;margin-bottom:10px}
+.level button{flex:1;padding:8px;font-size:11px;border:2px solid #444;border-radius:8px;cursor:pointer;background:#333;color:#888}
+.level button.active{border-color:#4CAF50;color:#4CAF50}
+.level button:active{opacity:0.7}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bag{background:#333;padding:12px;border-radius:8px;text-align:center}
+.bag h3{font-size:12px;margin-bottom:3px;color:#aaa}
+.bag .psi{font-size:32px;font-weight:bold;margin:5px 0}
+.bag .target{font-size:11px;color:#888;margin-bottom:8px}
+.bag .target span{color:#4CAF50}
+.bag .btns{display:flex;gap:5px;justify-content:center}
+.bag button{width:60px;height:60px;font-size:28px;border:none;border-radius:8px;cursor:pointer;color:#fff;transition:opacity 0.1s}
+.bag button:active,.bag button.held{opacity:0.7;transform:scale(0.95)}
+.bag .up{background:#4CAF50}
+.bag .dn{background:#f44336}
+.bag.timeout button{opacity:0.3;pointer-events:none}
+.pump{margin-top:10px;padding:8px;background:#333;border-radius:8px;text-align:center;font-size:12px}
+.pump .runtime{color:#666;font-size:10px;margin-top:4px}
+.status{font-size:10px;color:#666;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>1964 IMPALA AIR RIDE</h1>
+<div class="tank" id="tankDiv">Tank: <span id="tk">125</span> PSI<div class="lockout">TANK LOW - INFLATE DISABLED</div></div>
+<div class="presets">
+<button onclick="pr(0)">LAY</button>
+<button onclick="pr(1)">CRUISE</button>
+<button onclick="pr(2)">MAX</button>
+</div>
+<div class="memory">
+<button id="saveBtn" onclick="saveH()">SAVE HEIGHT</button>
+<button id="restoreBtn" class="has-data" onclick="restoreH()">RESTORE</button>
+</div>
+<div class="level">
+<button id="lvlOff" class="active" onclick="lvl(0)">LEVEL OFF</button>
+<button id="lvlFront" onclick="lvl(1)">FRONT</button>
+<button id="lvlRear" onclick="lvl(2)">REAR</button>
+<button id="lvlAll" onclick="lvl(3)">ALL</button>
+</div>
+<div class="grid">
+<div class="bag" id="bag0"><h3>FRONT LEFT</h3><div class="psi" id="b0">80</div><div class="target">Target: <span id="t0">80</span></div><div class="btns"><button class="up" data-b="0" data-d="1">+</button><button class="dn" data-b="0" data-d="-1">-</button></div></div>
+<div class="bag" id="bag1"><h3>FRONT RIGHT</h3><div class="psi" id="b1">80</div><div class="target">Target: <span id="t1">80</span></div><div class="btns"><button class="up" data-b="1" data-d="1">+</button><button class="dn" data-b="1" data-d="-1">-</button></div></div>
+<div class="bag" id="bag2"><h3>REAR LEFT</h3><div class="psi" id="b2">50</div><div class="target">Target: <span id="t2">50</span></div><div class="btns"><button class="up" data-b="2" data-d="1">+</button><button class="dn" data-b="2" data-d="-1">-</button></div></div>
+<div class="bag" id="bag3"><h3>REAR RIGHT</h3><div class="psi" id="b3">50</div><div class="target">Target: <span id="t3">50</span></div><div class="btns"><button class="up" data-b="3" data-d="1">+</button><button class="dn" data-b="3" data-d="-1">-</button></div></div>
+</div>
+<div class="pump">Pumps: <span id="pm">AUTO P1:off P2:ON</span><div class="runtime" id="rt">Runtime: P1:12.5h P2:11.8h</div></div>
+<div class="status">ESP32 Advanced Air Ride Controller - PREVIEW MODE</div>
+<script>
+// Demo data
+var demoData = {
+    tank: 125,
+    bags: [80, 80, 50, 50],
+    targets: [80, 80, 50, 50],
+    pump: "AUTO P1:off P2:ON",
+    level: 0,
+    lockout: false,
+    hasHeight: true,
+    timeouts: [false, false, false, false]
+};
+
+var holdInt = null;
+
+// Hold button handlers
+document.querySelectorAll('.bag button').forEach(function(btn){
+  btn.addEventListener('touchstart', function(e){
+    e.preventDefault();
+    startHold(this);
+  });
+  btn.addEventListener('mousedown', function(e){
+    startHold(this);
+  });
+  btn.addEventListener('touchend', stopHold);
+  btn.addEventListener('touchcancel', stopHold);
+  btn.addEventListener('mouseup', stopHold);
+  btn.addEventListener('mouseleave', stopHold);
+});
+
+function startHold(btn){
+  var b = parseInt(btn.dataset.b);
+  var d = parseInt(btn.dataset.d);
+  btn.classList.add('held');
+
+  // Simulate continuous inflate/deflate
+  holdInt = setInterval(function(){
+    demoData.bags[b] += d * 2;
+    if (demoData.bags[b] < 0) demoData.bags[b] = 0;
+    if (demoData.bags[b] > 120) demoData.bags[b] = 120;
+    upd();
+  }, 100);
+}
+
+function stopHold(){
+  if(holdInt){
+    clearInterval(holdInt);
+    holdInt = null;
+  }
+  document.querySelectorAll('.bag button').forEach(function(b){
+    b.classList.remove('held');
+  });
+}
+
+function pr(p){
+  var presets = [
+    {bags: [0, 0, 0, 0], targets: [0, 0, 0, 0]},
+    {bags: [80, 80, 50, 50], targets: [80, 80, 50, 50]},
+    {bags: [100, 100, 80, 80], targets: [100, 100, 80, 80]}
+  ];
+  demoData.bags = presets[p].bags.slice();
+  demoData.targets = presets[p].targets.slice();
+  upd();
+}
+
+function lvl(m){
+  demoData.level = m;
+  document.querySelectorAll('.level button').forEach(function(b, idx){
+    if(idx == m) b.classList.add('active');
+    else b.classList.remove('active');
+  });
+}
+
+function saveH(){
+  demoData.hasHeight = true;
+  document.getElementById('restoreBtn').classList.add('has-data');
+  alert('Height saved!');
+}
+
+function restoreH(){
+  if(demoData.hasHeight){
+    // Simulate restore
+    demoData.bags = [75, 75, 45, 45];
+    demoData.targets = [75, 75, 45, 45];
+    upd();
+  }
+}
+
+function upd(){
+  document.getElementById('tk').textContent = demoData.tank.toFixed(0);
+  var tankDiv = document.getElementById('tankDiv');
+  if(demoData.lockout){
+    tankDiv.classList.add('low');
+  } else {
+    tankDiv.classList.remove('low');
+  }
+  for(var i = 0; i < 4; i++){
+    document.getElementById('b' + i).textContent = demoData.bags[i].toFixed(0);
+    document.getElementById('t' + i).textContent = demoData.targets[i].toFixed(0);
+    var bagDiv = document.getElementById('bag' + i);
+    if(demoData.timeouts && demoData.timeouts[i]){
+      bagDiv.classList.add('timeout');
+    } else {
+      bagDiv.classList.remove('timeout');
+    }
+  }
+  document.getElementById('pm').textContent = demoData.pump;
+}
+
+upd();
+</script>
+</body>
+</html>
