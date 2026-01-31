@@ -1,5 +1,5 @@
-#ifndef WEBSERVER_H
-#define WEBSERVER_H
+#ifndef AIRRIDE_WEBSERVER_H
+#define AIRRIDE_WEBSERVER_H
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -52,4 +52,4 @@ class AirRideWebServer {
     String getHtmlPage();
 };
 
-#endif // WEBSERVER_H
+#endif // AIRRIDE_WEBSERVER_H

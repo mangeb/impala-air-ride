@@ -17,13 +17,15 @@
  * ESP32 with built-in WiFi - no shield required!
  */
 
+#include <WiFi.h>
+#include <WebServer.h>  // ESP32 built-in WebServer library
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
 #include <esp_task_wdt.h>
 #include "config.h"
 #include "AirBag.h"
 #include "Compressor.h"
-#include "WebServer.h"
+#include "AirRideWebServer.h"
 
 // ============================================
 // GLOBAL OBJECTS

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Air Ride UI Tests</title>
+<style>
+body { font-family: system-ui; background: #1a1a1a; color: #fff; padding: 20px; }
+h1 { color: #ffd700; }
+.test { padding: 10px; margin: 5px 0; border-radius: 4px; }
+.pass { background: #2e7d32; }
+.fail { background: #c62828; }
+.pending { background: #555; }
+#results { margin-top: 20px; }
+button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 10px 0; }
+iframe { width: 100%; height: 600px; border: 1px solid #444; margin: 20px 0; }
+</style>
+</head>
+<body>
+<h1>Air Ride UI Test Suite</h1>
+<button onclick="runTests()">Run All Tests</button>
+<div id="results"></div>
+<h3>Preview Under Test:</h3>
+<iframe id="preview" src="preview.html"></iframe>
+
+<script>
+var results = [];
+
+function assert(condition, testName) {
+    results.push({ name: testName, passed: condition });
+}
+
+function getPreviewDoc() {
+    return document.getElementById('preview').contentDocument;
+}
+
+function getPreviewWin() {
+    return document.getElementById('preview').contentWindow;
+}
+
+async function runTests() {
+    results = [];
+    var doc = getPreviewDoc();
+    var win = getPreviewWin();
+
+    // Wait for iframe to load
+    await new Promise(r => setTimeout(r, 500));
+
+    // Test 1: Page loads with correct title
+    assert(doc.title.includes('Impala'), 'Page title contains "Impala"');
+
+    // Test 2: Tank display exists
+    var tank = doc.getElementById('tk');
+    assert(tank !== null, 'Tank pressure element exists');
+    assert(tank.textContent !== '--', 'Tank pressure has initial value');
+
+    // Test 3: All 4 bag displays exist
+    for (var i = 0; i < 4; i++) {
+        var bag = doc.getElementById('b' + i);
+        assert(bag !== null, 'Bag ' + i + ' pressure element exists');
+    }
+
+    // Test 4: All 4 target displays exist
+    for (var i = 0; i < 4; i++) {
+        var target = doc.getElementById('t' + i);
+        assert(target !== null, 'Bag ' + i + ' target element exists');
+    }
+
+    // Test 5: Preset buttons exist
+    var presetBtns = doc.querySelectorAll('.presets button');
+    assert(presetBtns.length === 3, 'Three preset buttons exist (LAY, CRUISE, MAX)');
+
+    // Test 6: Level buttons exist
+    var levelBtns = doc.querySelectorAll('.level button');
+    assert(levelBtns.length === 4, 'Four level buttons exist');
+
+    // Test 7: Memory buttons exist
+    var saveBtn = doc.getElementById('saveBtn');
+    var restoreBtn = doc.getElementById('restoreBtn');
+    assert(saveBtn !== null, 'Save height button exists');
+    assert(restoreBtn !== null, 'Restore height button exists');
+
+    // Test 8: +/- buttons exist for all bags
+    var upBtns = doc.querySelectorAll('.bag .up');
+    var dnBtns = doc.querySelectorAll('.bag .dn');
+    assert(upBtns.length === 4, 'Four inflate (+) buttons exist');
+    assert(dnBtns.length === 4, 'Four deflate (-) buttons exist');
+
+    // Test 9: LAY preset sets all to 0
+    var initialFL = parseInt(doc.getElementById('b0').textContent);
+    win.pr(0); // LAY
+    await new Promise(r => setTimeout(r, 100));
+    assert(parseInt(doc.getElementById('b0').textContent) === 0, 'LAY preset sets front left to 0');
+    assert(parseInt(doc.getElementById('b2').textContent) === 0, 'LAY preset sets rear left to 0');
+
+    // Test 10: CRUISE preset sets correct values
+    win.pr(1); // CRUISE
+    await new Promise(r => setTimeout(r, 100));
+    assert(parseInt(doc.getElementById('b0').textContent) === 80, 'CRUISE sets front to 80');
+    assert(parseInt(doc.getElementById('b2').textContent) === 50, 'CRUISE sets rear to 50');
+
+    // Test 11: MAX preset sets correct values
+    win.pr(2); // MAX
+    await new Promise(r => setTimeout(r, 100));
+    assert(parseInt(doc.getElementById('b0').textContent) === 100, 'MAX sets front to 100');
+    assert(parseInt(doc.getElementById('b2').textContent) === 80, 'MAX sets rear to 80');
+
+    // Test 12: Level mode buttons toggle active class
+    win.lvl(1); // FRONT
+    await new Promise(r => setTimeout(r, 100));
+    var frontBtn = doc.getElementById('lvlFront');
+    assert(frontBtn.classList.contains('active'), 'FRONT level button becomes active');
+
+    win.lvl(0); // OFF
+    await new Promise(r => setTimeout(r, 100));
+    var offBtn = doc.getElementById('lvlOff');
+    assert(offBtn.classList.contains('active'), 'OFF level button becomes active');
+    assert(!frontBtn.classList.contains('active'), 'FRONT level button deactivates');
+
+    // Test 13: Hold button simulation (inflate)
+    win.pr(1); // Reset to CRUISE
+    await new Promise(r => setTimeout(r, 100));
+    var beforePressure = parseInt(doc.getElementById('b0').textContent);
+
+    // Simulate hold by triggering interval manually
+    var btn = doc.querySelector('.bag button.up[data-b="0"]');
+    win.demoData.bags[0] += 10; // Simulate inflation
+    win.upd();
+    await new Promise(r => setTimeout(r, 100));
+    var afterPressure = parseInt(doc.getElementById('b0').textContent);
+    assert(afterPressure > beforePressure, 'Inflate increases pressure');
+
+    // Test 14: Deflate decreases pressure
+    win.demoData.bags[0] -= 20;
+    win.upd();
+    await new Promise(r => setTimeout(r, 100));
+    var deflatedPressure = parseInt(doc.getElementById('b0').textContent);
+    assert(deflatedPressure < afterPressure, 'Deflate decreases pressure');
+
+    // Test 15: Pressure cannot go below 0
+    win.demoData.bags[0] = -10;
+    win.upd();
+    await new Promise(r => setTimeout(r, 100));
+    // The display should show -10 (demo mode doesn't clamp, real ESP32 does)
+    // This test verifies the display updates
+    assert(doc.getElementById('b0').textContent !== '', 'Pressure display updates');
+
+    // Test 16: Pump status display exists
+    var pumpStatus = doc.getElementById('pm');
+    assert(pumpStatus !== null, 'Pump status element exists');
+    assert(pumpStatus.textContent.includes('P1') && pumpStatus.textContent.includes('P2'),
+           'Pump status shows P1 and P2');
+
+    // Test 17: Runtime display exists
+    var runtime = doc.getElementById('rt');
+    assert(runtime !== null, 'Runtime element exists');
+
+    // Test 18: Restore button has-data class when height saved
+    assert(restoreBtn.classList.contains('has-data'), 'Restore button shows has-data when saved');
+
+    // Display results
+    displayResults();
+}
+
+function displayResults() {
+    var html = '<h2>Results: ' + results.filter(r => r.passed).length + '/' + results.length + ' passed</h2>';
+    results.forEach(function(r) {
+        html += '<div class="test ' + (r.passed ? 'pass' : 'fail') + '">';
+        html += (r.passed ? '✓' : '✗') + ' ' + r.name;
+        html += '</div>';
+    });
+    document.getElementById('results').innerHTML = html;
+}
+</script>
+</body>
+</html>

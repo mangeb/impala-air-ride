@@ -1,4 +1,4 @@
-#include "WebServer.h"
+#include "AirRideWebServer.h"
 
 // HTML page stored in PROGMEM
 const char HTML_PAGE[] PROGMEM = R"rawliteral(
