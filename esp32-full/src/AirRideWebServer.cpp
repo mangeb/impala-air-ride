@@ -1,155 +1,5 @@
 #include "AirRideWebServer.h"
-
-// HTML page stored in PROGMEM - Enhanced with hold buttons, target display, level mode
-const char HTML_PAGE[] PROGMEM = R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Impala Air Ride</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui;background:#1a1a1a;color:#fff;padding:10px;user-select:none;-webkit-user-select:none}
-h1{font-size:18px;text-align:center;margin-bottom:15px;color:#ffd700}
-.tank{text-align:center;padding:10px;background:#333;border-radius:8px;margin-bottom:10px}
-.tank span{font-size:24px;font-weight:bold}
-.tank .lockout{color:#f44336;font-size:12px;display:none}
-.tank.low .lockout{display:block}
-.presets{display:flex;gap:6px;margin-bottom:10px}
-.presets button{flex:1;padding:12px 5px;font-size:14px;border:none;border-radius:8px;cursor:pointer;color:#fff}
-.presets button:nth-child(1){background:#2196F3}
-.presets button:nth-child(2){background:#4CAF50}
-.presets button:nth-child(3){background:#ff9800}
-.presets button:active{opacity:0.7}
-.memory{display:flex;gap:6px;margin-bottom:10px}
-.memory button{flex:1;padding:10px;font-size:12px;border:none;border-radius:8px;cursor:pointer;background:#555;color:#fff}
-.memory button:active{opacity:0.7}
-.memory button.has-data{background:#9c27b0}
-.level{display:flex;gap:6px;margin-bottom:10px}
-.level button{flex:1;padding:8px;font-size:11px;border:2px solid #444;border-radius:8px;cursor:pointer;background:#333;color:#888}
-.level button.active{border-color:#4CAF50;color:#4CAF50}
-.level button:active{opacity:0.7}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.bag{background:#333;padding:12px;border-radius:8px;text-align:center}
-.bag h3{font-size:12px;margin-bottom:3px;color:#aaa}
-.bag .psi{font-size:32px;font-weight:bold;margin:5px 0}
-.bag .target{font-size:11px;color:#888;margin-bottom:8px}
-.bag .target span{color:#4CAF50}
-.bag .btns{display:flex;gap:5px;justify-content:center}
-.bag button{width:60px;height:60px;font-size:28px;border:none;border-radius:8px;cursor:pointer;color:#fff;transition:opacity 0.1s}
-.bag button:active,.bag button.held{opacity:0.7;transform:scale(0.95)}
-.bag .up{background:#4CAF50}
-.bag .dn{background:#f44336}
-.bag.timeout button{opacity:0.3;pointer-events:none}
-.pump{margin-top:10px;padding:8px;background:#333;border-radius:8px;text-align:center;font-size:12px}
-.pump .runtime{color:#666;font-size:10px;margin-top:4px}
-.pump .maint{color:#ff9800;font-size:11px;margin-top:4px;display:none}
-.pump .maint.due{display:block}
-.pump .maint.overdue{color:#f44336}
-.status{font-size:10px;color:#666;text-align:center;margin-top:8px}
-</style>
-</head>
-<body>
-<h1>1964 IMPALA AIR RIDE</h1>
-<div class="tank" id="tankDiv">Tank: <span id="tk">--</span> PSI<div class="lockout">TANK LOW - INFLATE DISABLED</div></div>
-<div class="presets">
-<button onclick="pr(0)">LAY</button>
-<button onclick="pr(1)">CRUISE</button>
-<button onclick="pr(2)">MAX</button>
-</div>
-<div class="memory">
-<button id="saveBtn" onclick="saveH()">SAVE HEIGHT</button>
-<button id="restoreBtn" onclick="restoreH()">RESTORE</button>
-</div>
-<div class="level">
-<button id="lvlOff" onclick="lvl(0)">LEVEL OFF</button>
-<button id="lvlFront" onclick="lvl(1)">FRONT</button>
-<button id="lvlRear" onclick="lvl(2)">REAR</button>
-<button id="lvlAll" onclick="lvl(3)">ALL</button>
-</div>
-<div class="grid">
-<div class="bag" id="bag0"><h3>FRONT LEFT</h3><div class="psi" id="b0">--</div><div class="target">Target: <span id="t0">--</span></div><div class="btns"><button class="up" data-b="0" data-d="1">+</button><button class="dn" data-b="0" data-d="-1">-</button></div></div>
-<div class="bag" id="bag1"><h3>FRONT RIGHT</h3><div class="psi" id="b1">--</div><div class="target">Target: <span id="t1">--</span></div><div class="btns"><button class="up" data-b="1" data-d="1">+</button><button class="dn" data-b="1" data-d="-1">-</button></div></div>
-<div class="bag" id="bag2"><h3>REAR LEFT</h3><div class="psi" id="b2">--</div><div class="target">Target: <span id="t2">--</span></div><div class="btns"><button class="up" data-b="2" data-d="1">+</button><button class="dn" data-b="2" data-d="-1">-</button></div></div>
-<div class="bag" id="bag3"><h3>REAR RIGHT</h3><div class="psi" id="b3">--</div><div class="target">Target: <span id="t3">--</span></div><div class="btns"><button class="up" data-b="3" data-d="1">+</button><button class="dn" data-b="3" data-d="-1">-</button></div></div>
-</div>
-<div class="pump">Pumps: <span id="pm">--</span><div class="runtime" id="rt"></div><div class="maint" id="mt"></div></div>
-<div class="status">ESP32 Advanced Air Ride Controller</div>
-<script>
-var holdInt=null,holdBag=-1,holdDir=0;
-
-// Hold button handlers
-document.querySelectorAll('.bag button').forEach(function(btn){
-  btn.addEventListener('touchstart',function(e){
-    e.preventDefault();
-    startHold(this);
-  });
-  btn.addEventListener('mousedown',function(e){
-    startHold(this);
-  });
-  btn.addEventListener('touchend',stopHold);
-  btn.addEventListener('touchcancel',stopHold);
-  btn.addEventListener('mouseup',stopHold);
-  btn.addEventListener('mouseleave',stopHold);
-});
-
-function startHold(btn){
-  var b=parseInt(btn.dataset.b);
-  var d=parseInt(btn.dataset.d);
-  btn.classList.add('held');
-  holdBag=b;holdDir=d;
-  // Immediate action
-  fetch('/b?n='+b+'&d='+d+'&h=1');
-  // Continuous while held
-  holdInt=setInterval(function(){
-    fetch('/b?n='+b+'&d='+d+'&h=1');
-  },100);
-}
-
-function stopHold(){
-  if(holdInt){
-    clearInterval(holdInt);
-    holdInt=null;
-  }
-  document.querySelectorAll('.bag button').forEach(function(b){b.classList.remove('held')});
-  if(holdBag>=0){
-    fetch('/bh?n='+holdBag);  // Signal hold release
-    holdBag=-1;holdDir=0;
-  }
-}
-
-function pr(p){fetch('/p?n='+p).then(upd)}
-function lvl(m){fetch('/l?m='+m).then(upd)}
-function saveH(){fetch('/sh').then(upd)}
-function restoreH(){fetch('/rh').then(upd)}
-
-function upd(){fetch('/s').then(function(r){return r.json()}).then(function(d){
-  document.getElementById('tk').textContent=d.tank.toFixed(0);
-  var tankDiv=document.getElementById('tankDiv');
-  if(d.lockout){tankDiv.classList.add('low')}else{tankDiv.classList.remove('low')}
-  for(var i=0;i<4;i++){
-    document.getElementById('b'+i).textContent=d.bags[i].toFixed(0);
-    document.getElementById('t'+i).textContent=d.targets[i].toFixed(0);
-    var bagDiv=document.getElementById('bag'+i);
-    if(d.timeouts&&d.timeouts[i]){bagDiv.classList.add('timeout')}else{bagDiv.classList.remove('timeout')}
-  }
-  document.getElementById('pm').textContent=d.pump;
-  if(d.runtime){document.getElementById('rt').textContent='Runtime: '+d.runtime}
-  var mtDiv=document.getElementById('mt');
-  if(d.maint){mtDiv.textContent=d.maint;mtDiv.classList.add('due');if(d.maintOverdue){mtDiv.classList.add('overdue')}else{mtDiv.classList.remove('overdue')}}else{mtDiv.classList.remove('due','overdue')}
-  // Update level buttons
-  document.querySelectorAll('.level button').forEach(function(b,idx){
-    if(idx==d.level){b.classList.add('active')}else{b.classList.remove('active')}
-  });
-  // Update restore button
-  var restoreBtn=document.getElementById('restoreBtn');
-  if(d.hasHeight){restoreBtn.classList.add('has-data')}else{restoreBtn.classList.remove('has-data')}
-})}
-setInterval(upd,400);upd();
-</script>
-</body>
-</html>
-)rawliteral";
+#include "html_content.h"  // Auto-generated gzipped React UI
 
 AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
     : bags(b),
@@ -185,6 +35,7 @@ void AirRideWebServer::begin() {
     server.on("/s", HTTP_GET, [this]() { handleStatus(); });
     server.on("/b", HTTP_GET, [this]() { handleBag(); });
     server.on("/bh", HTTP_GET, [this]() { handleBagHold(); });
+    server.on("/bt", HTTP_GET, [this]() { handleBagTarget(); });
     server.on("/p", HTTP_GET, [this]() { handlePreset(); });
     server.on("/l", HTTP_GET, [this]() { handleLevel(); });
     server.on("/sh", HTTP_GET, [this]() { handleSaveHeight(); });
@@ -214,7 +65,11 @@ void AirRideWebServer::update() {
 }
 
 void AirRideWebServer::handleRoot() {
-    server.send(200, "text/html", HTML_PAGE);
+    Serial.println("[WEB] GET / - Serving React UI (gzip, " + String(HTML_CONTENT_SIZE) + " bytes)");
+    // Serve gzipped React UI from PROGMEM
+    server.sendHeader("Content-Encoding", "gzip");
+    server.sendHeader("Cache-Control", "max-age=86400");
+    server.send_P(200, "text/html", (const char*)HTML_CONTENT, HTML_CONTENT_SIZE);
 }
 
 void AirRideWebServer::handleStatus() {
@@ -284,6 +139,11 @@ void AirRideWebServer::handleBag() {
         int bagNum = server.arg("n").toInt();
         int dir = server.arg("d").toInt();
 
+        Serial.print("[WEB] /b bag=");
+        Serial.print(bagNum);
+        Serial.print(" dir=");
+        Serial.print(dir > 0 ? "INFLATE" : "DEFLATE");
+
         if (bagNum >= 0 && bagNum < NUM_BAGS) {
             if (dir > 0) {
                 // Check tank lockout before inflating
@@ -294,6 +154,11 @@ void AirRideWebServer::handleBag() {
                     if (bags[bagNum].getTargetPressure() <= current) {
                         bags[bagNum].setTargetPressure(MAX_BAG_PSI);
                     }
+                    Serial.print(" cur=");
+                    Serial.print(current, 1);
+                    Serial.println(" OK");
+                } else {
+                    Serial.println(" BLOCKED (tank lockout)");
                 }
             } else {
                 bags[bagNum].deflate();
@@ -302,7 +167,12 @@ void AirRideWebServer::handleBag() {
                 if (bags[bagNum].getTargetPressure() >= current) {
                     bags[bagNum].setTargetPressure(MIN_BAG_PSI);
                 }
+                Serial.print(" cur=");
+                Serial.print(current, 1);
+                Serial.println(" OK");
             }
+        } else {
+            Serial.println(" INVALID bag number");
         }
     }
     handleStatus();
@@ -314,8 +184,48 @@ void AirRideWebServer::handleBagHold() {
         int bagNum = server.arg("n").toInt();
         if (bagNum >= 0 && bagNum < NUM_BAGS) {
             bags[bagNum].hold();
-            // Set target to current pressure (stop auto-tracking)
-            bags[bagNum].setTargetPressure(bags[bagNum].getPressure());
+            float lockedPsi = bags[bagNum].getPressure();
+            bags[bagNum].setTargetPressure(lockedPsi);
+            Serial.print("[WEB] /bh RELEASE bag=");
+            Serial.print(bagNum);
+            Serial.print(" locked at ");
+            Serial.print(lockedPsi, 1);
+            Serial.println(" PSI");
+        }
+    }
+    handleStatus();
+}
+
+void AirRideWebServer::handleBagTarget() {
+    // Set target pressure for a specific bag: /bt?n=<bag>&t=<psi>
+    if (server.hasArg("n") && server.hasArg("t")) {
+        int bagNum = server.arg("n").toInt();
+        float targetPsi = server.arg("t").toFloat();
+
+        Serial.print("[WEB] /bt TARGET bag=");
+        Serial.print(bagNum);
+        Serial.print(" target=");
+        Serial.print(targetPsi, 1);
+        Serial.println(" PSI");
+
+        if (bagNum >= 0 && bagNum < NUM_BAGS) {
+            // Clamp to safe range
+            if (targetPsi < MIN_BAG_PSI) targetPsi = MIN_BAG_PSI;
+            if (targetPsi > MAX_BAG_PSI) targetPsi = MAX_BAG_PSI;
+
+            bags[bagNum].setTargetPressure(targetPsi);
+
+            // Start moving to target
+            float current = bags[bagNum].getPressure();
+            if (current < targetPsi - 2.0) {
+                if (!tankLockout) {
+                    bags[bagNum].inflate();
+                }
+            } else if (current > targetPsi + 2.0) {
+                bags[bagNum].deflate();
+            } else {
+                bags[bagNum].hold();
+            }
         }
     }
     handleStatus();
@@ -326,6 +236,19 @@ void AirRideWebServer::handlePreset() {
         int presetNum = server.arg("n").toInt();
 
         if (presetNum >= 0 && presetNum < NUM_PRESETS) {
+            Serial.print("[WEB] /p PRESET ");
+            Serial.print(DEFAULT_PRESETS[presetNum].name);
+            Serial.print(" (");
+            Serial.print(presetNum);
+            Serial.print(") FL=");
+            Serial.print(DEFAULT_PRESETS[presetNum].frontLeft, 0);
+            Serial.print(" FR=");
+            Serial.print(DEFAULT_PRESETS[presetNum].frontRight, 0);
+            Serial.print(" RL=");
+            Serial.print(DEFAULT_PRESETS[presetNum].rearLeft, 0);
+            Serial.print(" RR=");
+            Serial.println(DEFAULT_PRESETS[presetNum].rearRight, 0);
+
             bags[FRONT_LEFT].setTargetPressure(DEFAULT_PRESETS[presetNum].frontLeft);
             bags[FRONT_RIGHT].setTargetPressure(DEFAULT_PRESETS[presetNum].frontRight);
             bags[REAR_LEFT].setTargetPressure(DEFAULT_PRESETS[presetNum].rearLeft);
@@ -353,14 +276,25 @@ void AirRideWebServer::handlePreset() {
 void AirRideWebServer::handleLevel() {
     if (server.hasArg("m")) {
         int mode = server.arg("m").toInt();
+        const char* modeNames[] = {"OFF", "FRONT", "REAR", "ALL"};
         if (mode >= 0 && mode <= 3) {
             levelMode = (LevelMode)mode;
+            Serial.print("[WEB] /l LEVEL mode=");
+            Serial.println(modeNames[mode]);
         }
     }
     handleStatus();
 }
 
 void AirRideWebServer::handleSaveHeight() {
+    Serial.print("[WEB] /sh SAVE HEIGHT FL=");
+    Serial.print(bags[FRONT_LEFT].getPressure(), 1);
+    Serial.print(" FR=");
+    Serial.print(bags[FRONT_RIGHT].getPressure(), 1);
+    Serial.print(" RL=");
+    Serial.print(bags[REAR_LEFT].getPressure(), 1);
+    Serial.print(" RR=");
+    Serial.println(bags[REAR_RIGHT].getPressure(), 1);
     // Save current pressures to EEPROM
     for (int i = 0; i < NUM_BAGS; i++) {
         lastHeight[i] = bags[i].getPressure();
@@ -370,6 +304,19 @@ void AirRideWebServer::handleSaveHeight() {
 }
 
 void AirRideWebServer::handleRestoreHeight() {
+    Serial.print("[WEB] /rh RESTORE HEIGHT");
+    if (hasStoredHeight) {
+        Serial.print(" FL=");
+        Serial.print(lastHeight[FRONT_LEFT], 1);
+        Serial.print(" FR=");
+        Serial.print(lastHeight[FRONT_RIGHT], 1);
+        Serial.print(" RL=");
+        Serial.print(lastHeight[REAR_LEFT], 1);
+        Serial.print(" RR=");
+        Serial.println(lastHeight[REAR_RIGHT], 1);
+    } else {
+        Serial.println(" (no saved data)");
+    }
     if (hasStoredHeight) {
         // Set targets to stored heights
         bags[FRONT_LEFT].setTargetPressure(lastHeight[FRONT_LEFT]);
@@ -394,6 +341,8 @@ void AirRideWebServer::handleRestoreHeight() {
 }
 
 void AirRideWebServer::handleNotFound() {
+    Serial.print("[WEB] 404 Not Found: ");
+    Serial.println(server.uri());
     server.send(404, "text/plain", "Not Found");
 }
 
@@ -501,6 +450,6 @@ void AirRideWebServer::updateLevelMode() {
     }
 }
 
-String AirRideWebServer::getHtmlPage() {
-    return String(HTML_PAGE);
+uint32_t AirRideWebServer::getHtmlSize() {
+    return HTML_CONTENT_SIZE;
 }

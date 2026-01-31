@@ -80,14 +80,15 @@ class AirRideWebServer {
     void handleRoot();
     void handleStatus();
     void handleBag();
-    void handleBagHold();  // New: hold button release
+    void handleBagHold();    // Hold button release
+    void handleBagTarget();  // Set target for single bag: /bt?n=<bag>&t=<psi>
     void handlePreset();
     void handleLevel();
     void handleSaveHeight();
     void handleRestoreHeight();
     void handleNotFound();
 
-    String getHtmlPage();
+    uint32_t getHtmlSize();
 };
 
 #endif // AIRRIDE_WEBSERVER_H

@@ -72,6 +72,11 @@ void Compressor::runAutoMode(float tankPressure) {
 
     // Tank is full - turn off both pumps
     if (tankPressure >= targetPressure) {
+        if (pump1On || pump2On) {
+            Serial.print("[PUMP] Tank full (");
+            Serial.print(tankPressure, 1);
+            Serial.println(" PSI) - pumps OFF");
+        }
         setPump1(false);
         setPump2(false);
         return;
@@ -81,6 +86,11 @@ void Compressor::runAutoMode(float tankPressure) {
     if (tankPressure < TANK_MIN_PSI) {
         // Below threshold - run both pumps for maximum fill rate
         if (tankPressure <= PUMP_BOTH_ON_THRESHOLD) {
+            if (!pump1On || !pump2On) {
+                Serial.print("[PUMP] Tank low (");
+                Serial.print(tankPressure, 1);
+                Serial.println(" PSI) - BOTH pumps ON");
+            }
             setPump1(true);
             setPump2(true);
         }
@@ -90,6 +100,11 @@ void Compressor::runAutoMode(float tankPressure) {
             if (currentTime - lastSwitchTime >= PUMP_SWITCH_INTERVAL) {
                 alternatePump = !alternatePump;
                 lastSwitchTime = currentTime;
+                Serial.print("[PUMP] Alternating to P");
+                Serial.print(alternatePump ? "2" : "1");
+                Serial.print(" (tank=");
+                Serial.print(tankPressure, 1);
+                Serial.println(" PSI)");
             }
 
             if (alternatePump) {
@@ -108,6 +123,11 @@ void Compressor::runAutoMode(float tankPressure) {
         if (currentTime - lastSwitchTime >= PUMP_SWITCH_INTERVAL) {
             alternatePump = !alternatePump;
             lastSwitchTime = currentTime;
+            Serial.print("[PUMP] Topping off - switch to P");
+            Serial.print(alternatePump ? "2" : "1");
+            Serial.print(" (tank=");
+            Serial.print(tankPressure, 1);
+            Serial.println(" PSI)");
         }
 
         if (alternatePump) {
@@ -121,6 +141,11 @@ void Compressor::runAutoMode(float tankPressure) {
 }
 
 void Compressor::setMode(PumpMode mode) {
+    if (mode != currentMode) {
+        Serial.print("[PUMP] Mode changed to ");
+        const char* names[] = {"AUTO", "OFF", "BOTH", "P1 ONLY", "P2 ONLY"};
+        Serial.println(names[mode]);
+    }
     currentMode = mode;
 }
 
@@ -131,11 +156,19 @@ void Compressor::setTargetPressure(float psi) {
 }
 
 void Compressor::setPump1(bool on) {
+    if (on != pump1On) {
+        Serial.print("[PUMP] P1 ");
+        Serial.println(on ? "ON" : "OFF");
+    }
     pump1On = on;
     digitalWrite(pump1Pin, on ? RELAY_ON : RELAY_OFF);
 }
 
 void Compressor::setPump2(bool on) {
+    if (on != pump2On) {
+        Serial.print("[PUMP] P2 ");
+        Serial.println(on ? "ON" : "OFF");
+    }
     pump2On = on;
     digitalWrite(pump2Pin, on ? RELAY_ON : RELAY_OFF);
 }
