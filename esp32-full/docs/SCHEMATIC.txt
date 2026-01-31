@@ -1,0 +1,322 @@
+================================================================================
+                    1964 IMPALA AIR RIDE CONTROLLER
+                        ELECTRICAL SCHEMATIC
+              RideTech Big Red 4-Way Manifold Configuration
+                           ESP32 VERSION
+================================================================================
+
+
+POWER SUPPLY
+============
+    Car 12V Battery
+         |
+         +--[Fuse 15A]--+-- 12V to Relay Module (for solenoids & pumps)
+         |              |
+         +--[Fuse 5A]---+-- 12V to Voltage Regulator
+                        |
+                   [LM2596 Buck Converter]  <-- Use buck converter, NOT 7805
+                        |                       (ESP32 needs clean 5V/3.3V)
+                       5V --> ESP32 VIN
+                        |
+                       GND --> ESP32 GND
+
+    NOTE: ESP32 has built-in 3.3V regulator. Feed 5V to VIN pin.
+
+
+ESP32 DEVKIT PINOUT
+===================
+ESP32 has built-in WiFi - no shield needed!
+IMPORTANT: Only use ADC1 pins for analog (ADC2 conflicts with WiFi)
+
+                        ESP32 DEVKIT V1
+    +--------------------------------------------------+
+    |                     [USB]                        |
+    |                                                  |
+    | EN                                          D23 --> RR Deflate
+    | VP (GPIO36/ADC1_0) <-- Tank Pressure        D22  |
+    | VN (GPIO39/ADC1_3) <-- FL Pressure          TX0  |
+    | D34 (ADC1_6) <-- FR Pressure                RX0  |
+    | D35 (ADC1_7) <-- RL Pressure                D21  |
+    | D32 (ADC1_4) <-- RR Pressure                D19 --> Pump 1
+    | D33 --> RR Inflate                          D18 --> Pump 2
+    | D25 --> RL Deflate                          D5   |
+    | D26 --> RL Inflate                          D17  |
+    | D27 --> FR Deflate                          D16  |
+    | D14 --> FR Inflate                          D4   |
+    | D12 --> FL Deflate                          D2   |
+    | D13 --> FL Inflate                          D15  |
+    | GND                                         GND  |
+    | VIN <-- 5V                                  3V3  |
+    +--------------------------------------------------+
+
+    Pin Assignment Summary:
+    -----------------------
+    ANALOG (ADC1 only - compatible with WiFi):
+      GPIO36 (VP):  Tank Pressure
+      GPIO39 (VN):  Front Left Pressure
+      GPIO34:       Front Right Pressure
+      GPIO35:       Rear Left Pressure
+      GPIO32:       Rear Right Pressure
+
+    DIGITAL (Solenoids):
+      GPIO13: FL Inflate     GPIO12: FL Deflate
+      GPIO14: FR Inflate     GPIO27: FR Deflate
+      GPIO26: RL Inflate     GPIO25: RL Deflate
+      GPIO33: RR Inflate     GPIO23: RR Deflate
+
+    DIGITAL (Pumps):
+      GPIO19: Pump 1
+      GPIO18: Pump 2
+
+
+VDO PRESSURE SENSOR WIRING (x5 sensors)
+=======================================
+IMPORTANT: ESP32 uses 3.3V reference, not 5V!
+Use 3.3V from ESP32 for the voltage divider.
+
+           +3.3V (ESP32 3V3 pin)
+            |
+            |
+           [R_ref]  <-- 100 ohm 1/4W resistor
+            |
+            +--------> To ESP32 ADC1 Pin (GPIO 32-36, 39)
+            |
+         [VDO Sensor]  <-- Variable resistance 10-180 ohm
+            |              (10 ohm = 0 PSI, 180 ohm = 150 PSI)
+            |
+           GND
+
+
+VOLTAGE DIVIDER CALCULATIONS (3.3V):
+------------------------------------
+At 0 PSI (10 ohm):    V = 3.3V × 10/(100+10)   = 0.30V  (ADC: ~372)
+At 75 PSI (95 ohm):   V = 3.3V × 95/(100+95)   = 1.61V  (ADC: ~1996)
+At 150 PSI (180 ohm): V = 3.3V × 180/(100+180) = 2.12V  (ADC: ~2630)
+
+ESP32 ADC is 12-bit (0-4095) with 3.3V reference
+
+
+COMPLETE SENSOR CIRCUIT (x5)
+============================
+
+    +3.3V ---+----+----+----+----+
+             |    |    |    |    |
+            100  100  100  100  100  (ohm resistors)
+             |    |    |    |    |
+             |    |    |    |    +--> GPIO36/VP (Tank)
+             |    |    |    +-------> GPIO39/VN (FL)
+             |    |    +------------> GPIO34 (FR)
+             |    +-----------------> GPIO35 (RL)
+             +----------------------> GPIO32 (RR)
+             |    |    |    |    |
+            VDO  VDO  VDO  VDO  VDO
+           Tank   FL   FR   RL   RR
+             |    |    |    |    |
+             +----+----+----+----+--> GND
+
+
+RELAY MODULE WIRING (10-Channel Relay Module)
+=============================================
+Need 10 relays: 8 for solenoids + 2 for pumps
+Relay modules are typically ACTIVE LOW (signal LOW = relay ON)
+
+ESP32                     Relay Module
+-----                     ------------
+  VIN (5V) ------------->  VCC
+  GND ------------------->  GND
+  GPIO13 ---------------->  IN1  (Front Left INFLATE)
+  GPIO12 ---------------->  IN2  (Front Left DEFLATE)
+  GPIO14 ---------------->  IN3  (Front Right INFLATE)
+  GPIO27 ---------------->  IN4  (Front Right DEFLATE)
+  GPIO26 ---------------->  IN5  (Rear Left INFLATE)
+  GPIO25 ---------------->  IN6  (Rear Left DEFLATE)
+  GPIO33 ---------------->  IN7  (Rear Right INFLATE)
+  GPIO23 ---------------->  IN8  (Rear Right DEFLATE)
+  GPIO19 ---------------->  IN9  (Compressor Pump 1)
+  GPIO18 ---------------->  IN10 (Compressor Pump 2)
+
+
+RIDETECH BIG RED MANIFOLD WIRING
+================================
+The Big Red 4-way manifold has 8 solenoid coils (2 per corner)
+
+Manifold Layout (top view):
++-------------------------------------------------------------------------+
+|  [FL INF]  [FL DEF]  [FR INF]  [FR DEF]  [RL INF]  [RL DEF]  [RR INF]  [RR DEF]  |
+|  GPIO13    GPIO12    GPIO14    GPIO27    GPIO26    GPIO25    GPIO33    GPIO23    |
++-------------------------------------------------------------------------+
+|   SUPPLY (from tank)              |              EXHAUST (to atmosphere)         |
++-------------------------------------------------------------------------+
+|        FL DELIVERY    FR DELIVERY    RL DELIVERY    RR DELIVERY                  |
+|         (to bag)       (to bag)       (to bag)       (to bag)                    |
++-------------------------------------------------------------------------+
+
+Port Connections:
+- SUPPLY ports (2x 1/4"): Connect to air tank
+- EXHAUST ports (2x 1/4"): Open to atmosphere (add mufflers for quiet operation)
+- DELIVERY ports (4x 1/4"): Connect to each air bag
+- GAUGE ports (4x 1/8"): Connect to VDO pressure sensors
+
+
+SOLENOID WIRING DETAIL (x8 solenoids)
+=====================================
+RideTech Big Red solenoids are 12V, normally closed
+
+    +12V (Fused)
+        |
+    [Relay NO]----+
+        |         |
+        +---------|<|------+   <-- 1N4007 flyback diode
+        |                  |       (cathode to +12V side)
+   [Solenoid +]      [Solenoid -]
+        |                  |
+        +------------------+
+                |
+               GND
+
+    Each solenoid coil: ~3-5 ohms, draws ~2-4A when energized
+    Use relays rated for at least 5A per channel
+
+
+COMPRESSOR PUMP WIRING (12V pumps x2)
+=====================================
+Higher current than solenoids - use appropriate relay rating
+
+    +12V (Fused - 20A per pump)
+        |
+    [Relay NO]----+
+        |         |
+        +---------|<|------+   <-- 1N4007 flyback diode
+        |                  |
+   [Pump Motor +]    [Pump Motor -]
+        |                  |
+        +------------------+
+                |
+               GND
+
+    Add 100uF capacitor near each pump for noise suppression
+
+
+FULL SYSTEM WIRING DIAGRAM
+==========================
+
+                                    +12V BATTERY
+                                         |
+                    +--------------------+--------------------+
+                    |                    |                    |
+               [15A FUSE]           [20A FUSE x2]        [5A FUSE]
+                    |                    |                    |
+                    v                    v                    v
+            +---------------+    +---------------+    +------------+
+            | 10-CH RELAY   |    | PUMP RELAYS   |    | BUCK       |
+            | MODULE        |    | (IN9, IN10)   |    | CONVERTER  |
+            +-------+-------+    +-------+-------+    | (LM2596)   |
+                    |                    |            +-----+------+
+    +---------------+---------------+    |                  |
+    |   |   |   |   |   |   |   |   |    |                  v
+   FL  FL  FR  FR  RL  RL  RR  RR   |    |            +----------+
+  INF DEF INF DEF INF DEF INF DEF  |    |            |  ESP32   |
+   13  12  14  27  26  25  33  23  |    |            | DEVKIT   |
+   |   |   |   |   |   |   |   |   |    |            +----------+
+   v   v   v   v   v   v   v   v   |    |                 |
++----------------------------------+    |            [Built-in WiFi]
+|     RIDETECH BIG RED MANIFOLD    |    |                 |
++----------------------------------+    |            [Phone connects
+    |       |       |       |           |             via WiFi AP]
+    v       v       v       v           v
+  [FL]    [FR]    [RL]    [RR]     [PUMP1][PUMP2]
+  BAG     BAG     BAG     BAG      GPIO19 GPIO18
+                                     |     |
+                                     v     v
+                                  [AIR TANK]
+
+
+AIR SYSTEM PLUMBING
+===================
+
+    [PUMP 1]----+
+                |
+    [PUMP 2]----+----> [CHECK VALVES] ----> [AIR TANK]
+                                                |
+                                                v
+                                    +---[SUPPLY PORTS]---+
+                                    |                    |
+                                    v                    v
+                         +------------------------+
+                         |   BIG RED MANIFOLD     |
+                         |                        |
+                         | FL   FR   RL   RR      |
+                         +--+----+----+----+------+
+                            |    |    |    |
+                            v    v    v    v
+                          [FL] [FR] [RL] [RR]
+                          BAG  BAG  BAG  BAG
+
+
+PARTS LIST
+==========
+Electronics:
+- 1x ESP32 DevKit V1 (or similar ESP32 board)
+- 1x 10-Channel Relay Module (5V logic, 10A contacts min)
+- 5x 100 ohm 1/4W resistors (for VDO voltage dividers)
+- 10x 1N4007 diodes (flyback protection)
+- 1x LM2596 Buck Converter (12V to 5V, 3A min)
+- 2x 100uF 25V capacitors (pump noise suppression)
+
+Sensors:
+- 5x VDO 0-150 PSI pressure sensors (10-180 ohm)
+
+Air System:
+- 1x RideTech Big Red 4-Way Manifold (31914000)
+- 4x Air bags (appropriate for 1964 Impala)
+- 2x 12V air compressor pumps
+- 1x Air tank (3-5 gallon recommended)
+- 2x Check valves (one per pump)
+- Air line fittings and tubing (3/8" for main, 1/4" for bags)
+- 2x Exhaust mufflers (optional, for quiet dump)
+
+Electrical:
+- 1x 15A fuse (solenoids)
+- 2x 20A fuse (pumps)
+- 1x 5A fuse (electronics)
+- 14 AWG wire (pumps)
+- 18 AWG wire (solenoids, signals)
+- Weatherpak connectors (for RideTech solenoids)
+- Terminal blocks
+
+
+WIRING COLOR CODE SUGGESTION
+============================
+- RED: +12V power
+- BLACK: Ground
+- ORANGE: Inflate solenoid signals
+- BLUE: Deflate solenoid signals
+- GREEN: Pump signals
+- YELLOW: Sensor signals
+- WHITE: 5V/3.3V power
+
+
+ESP32 ADVANTAGES
+================
+1. Built-in WiFi - no shield needed, smaller package
+2. Faster processor (240 MHz dual-core vs 16 MHz)
+3. More memory (520KB SRAM vs 8KB)
+4. 12-bit ADC (4096 levels vs 1024)
+5. Lower cost than Mega + WiFi Shield
+6. OTA (Over-The-Air) update capability
+7. Bluetooth available if needed later
+
+
+NOTES
+=====
+1. CRITICAL: Use ADC1 pins only (GPIO 32-36, 39) - ADC2 conflicts with WiFi!
+2. ESP32 operates at 3.3V logic - use 3.3V for voltage dividers
+3. Use LM2596 buck converter, not 7805 (cleaner power, higher efficiency)
+4. All grounds must be connected together (common ground)
+5. Keep sensor wires away from relay/solenoid wires to reduce noise
+6. Use shielded cable for sensor wires if experiencing interference
+7. RideTech Big Red solenoids use Weatherpak connectors
+8. Test relay module polarity - some are active HIGH
+9. GPIO0, GPIO2, GPIO15 have boot mode functions - avoid for relays
+
+================================================================================

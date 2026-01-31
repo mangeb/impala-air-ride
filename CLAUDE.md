@@ -49,6 +49,14 @@ Air ride suspension controller for a 1964 Chevrolet Impala with WiFi mobile cont
 │       ├── SCHEMATIC.txt
 │       └── preview.html
 │
+├── esp32-full/             # ESP32 full version (enhanced UI + all features)
+│   ├── src/main.ino
+│   ├── lib/
+│   ├── include/
+│   └── docs/
+│       ├── SCHEMATIC.txt
+│       └── preview.html
+│
 └── CLAUDE.md
 ```
 
@@ -69,6 +77,9 @@ Full-featured version with:
 - **OTA Updates**: Wireless firmware updates
 - **Pump Runtime Tracking**: Maintenance scheduling
 - **Tank Lockout**: Hysteresis prevents pump cycling
+
+### Full (`esp32-full/`)
+Based on esp32-advanced with enhanced UI and polish. Used for HTML/UI development and iteration.
 
 ## Development Commands
 
