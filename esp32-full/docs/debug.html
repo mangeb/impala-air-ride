@@ -158,16 +158,6 @@
   <div style="font-size:11px;color:#f44336;margin-top:2px" id="pump-maint"></div>
 </div>
 
-<!-- Memory -->
-<div class="section">
-  <h2>Ride Height Memory</h2>
-  <div class="btn-row">
-    <button class="memory" onclick="saveHeight()">Save Height</button>
-    <button class="memory" onclick="restoreHeight()">Restore Height</button>
-  </div>
-  <div style="font-size:11px;color:#666;margin-top:2px" id="height-status"></div>
-</div>
-
 <!-- Raw Endpoints -->
 <div class="section">
   <h2>Raw Endpoint Test</h2>
@@ -188,7 +178,7 @@ const BAGS = ['FL', 'FR', 'RL', 'RR'];
 const BAG_LABELS = { FL: 'Front Left', FR: 'Front Right', RL: 'Rear Left', RR: 'Rear Right' };
 let polling = false;
 let pollTimer = null;
-let state = { bags: [0,0,0,0], targets: [0,0,0,0], tank: 0, timeouts: [false,false,false,false], level: 0, lockout: false, pumpEnabled: true, pump: '', runtime: '', hasHeight: false, presets: null, maint: null, maintOverdue: false };
+let state = { bags: [0,0,0,0], targets: [0,0,0,0], tank: 0, timeouts: [false,false,false,false], level: 0, lockout: false, pumpEnabled: true, pump: '', runtime: '', presets: null, maint: null, maintOverdue: false };
 
 function ev(e) { e.preventDefault(); }
 function getBase() { return document.getElementById('base-url').value.replace(/\/+$/, ''); }
@@ -294,9 +284,6 @@ function updateUI() {
     maintEl.textContent = '';
   }
 
-  // Height
-  document.getElementById('height-status').textContent = state.hasHeight ? 'Saved height available' : 'No saved height';
-
   // Presets
   if (state.presets) {
     const names = ['Lay', 'Cruise', 'Max'];
@@ -321,7 +308,6 @@ async function pollNow() {
     state.pumpEnabled = data.pumpEnabled !== false;
     state.pump = data.pump || '';
     state.runtime = data.runtime || '';
-    state.hasHeight = data.hasHeight || false;
     state.presets = data.presets || null;
     state.maint = data.maint || null;
     state.maintOverdue = data.maintOverdue || false;
@@ -377,10 +363,6 @@ async function setLevel(m) { await api(`/l?m=${m}`); if (!polling) pollNow(); }
 
 // Pumps
 async function togglePump() { await api('/po'); if (!polling) pollNow(); }
-
-// Memory
-async function saveHeight() { await api('/sh'); if (!polling) pollNow(); }
-async function restoreHeight() { await api('/rh'); if (!polling) pollNow(); }
 
 // Raw endpoint
 async function rawFetch() {

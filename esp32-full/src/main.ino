@@ -5,7 +5,7 @@
  * Enhanced features:
  * - Hold buttons for continuous inflate/deflate
  * - Target PSI display
- * - Ride height memory (EEPROM)
+ * - Saveable presets (EEPROM)
  * - Level mode (auto-match left/right)
  * - Watchdog timer
  * - Solenoid timeout protection
@@ -395,7 +395,6 @@ void printHelp() {
     Serial.println("Pumps:   PA=auto, PO=off, PB=both, P1=pump1, P2=pump2");
     Serial.println("         PE=enable/disable toggle, PT###=set target PSI");
     Serial.println("Level:   L0=off, L1=front, L2=rear, L3=all");
-    Serial.println("Memory:  MS=save height, MH=restore height");
     Serial.println("Maint:   MR1=reset pump1, MR2=reset pump2 (after service)");
     Serial.println("Status:  ?=help, P=print status");
     Serial.print("WiFi: Connect to '");
@@ -478,20 +477,10 @@ void processSerialCommand() {
 
         case 'M':
         case 'm': {
+            // Maintenance reset: MR1 or MR2
             while (!Serial.available()) { delay(1); }
             char subCmd = Serial.read();
-            if (subCmd == 'S' || subCmd == 's') {
-                webServer.saveRideHeight();
-                Serial.println("Ride height saved");
-            } else if (subCmd == 'H' || subCmd == 'h') {
-                if (webServer.hasLastRideHeight()) {
-                    webServer.restoreRideHeight();
-                    Serial.println("Restoring ride height...");
-                } else {
-                    Serial.println("No saved ride height");
-                }
-            } else if (subCmd == 'R' || subCmd == 'r') {
-                // Maintenance reset: MR1 or MR2
+            if (subCmd == 'R' || subCmd == 'r') {
                 while (!Serial.available()) { delay(1); }
                 char pumpNum = Serial.read();
                 if (pumpNum == '1') {
