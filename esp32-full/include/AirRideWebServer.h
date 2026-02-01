@@ -62,6 +62,11 @@ class AirRideWebServer {
     bool isPumpEnabled() const { return pumpEnabled; }
     void setPumpEnabled(bool enabled) { pumpEnabled = enabled; }
 
+    // Actions callable from both web and serial
+    void applyPreset(int presetNum);
+    void restoreRideHeight();
+    const char* getPresetName(int presetNum) const;
+
   private:
     AirBag* bags;
     Compressor* compressor;

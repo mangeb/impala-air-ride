@@ -276,25 +276,7 @@ void AirRideWebServer::handlePreset() {
             Serial.print(" RR=");
             Serial.println(currentPresets[presetNum][3], 0);
 
-            bags[FRONT_LEFT].setTargetPressure(currentPresets[presetNum][0]);
-            bags[FRONT_RIGHT].setTargetPressure(currentPresets[presetNum][1]);
-            bags[REAR_LEFT].setTargetPressure(currentPresets[presetNum][2]);
-            bags[REAR_RIGHT].setTargetPressure(currentPresets[presetNum][3]);
-
-            // Start moving to targets
-            for (int i = 0; i < NUM_BAGS; i++) {
-                float current = bags[i].getPressure();
-                float target = bags[i].getTargetPressure();
-                if (current < target - 2.0) {
-                    if (!tankLockout) {
-                        bags[i].inflate();
-                    }
-                } else if (current > target + 2.0) {
-                    bags[i].deflate();
-                } else {
-                    bags[i].hold();
-                }
-            }
+            applyPreset(presetNum);
         }
     }
     handleStatus();
@@ -467,26 +449,7 @@ void AirRideWebServer::handleRestoreHeight() {
     } else {
         Serial.println(" (no saved data)");
     }
-    if (hasStoredHeight) {
-        // Set targets to stored heights
-        bags[FRONT_LEFT].setTargetPressure(lastHeight[FRONT_LEFT]);
-        bags[FRONT_RIGHT].setTargetPressure(lastHeight[FRONT_RIGHT]);
-        bags[REAR_LEFT].setTargetPressure(lastHeight[REAR_LEFT]);
-        bags[REAR_RIGHT].setTargetPressure(lastHeight[REAR_RIGHT]);
-
-        // Start moving to targets
-        for (int i = 0; i < NUM_BAGS; i++) {
-            float current = bags[i].getPressure();
-            float target = bags[i].getTargetPressure();
-            if (current < target - 2.0) {
-                if (!tankLockout) {
-                    bags[i].inflate();
-                }
-            } else if (current > target + 2.0) {
-                bags[i].deflate();
-            }
-        }
-    }
+    restoreRideHeight();
     handleStatus();
 }
 
@@ -500,6 +463,59 @@ void AirRideWebServer::handlePumpOverride() {
         compressor->setMode(PUMP_AUTO);
     }
     handleStatus();
+}
+
+void AirRideWebServer::applyPreset(int presetNum) {
+    if (presetNum < 0 || presetNum >= NUM_PRESETS) return;
+
+    bags[FRONT_LEFT].setTargetPressure(currentPresets[presetNum][0]);
+    bags[FRONT_RIGHT].setTargetPressure(currentPresets[presetNum][1]);
+    bags[REAR_LEFT].setTargetPressure(currentPresets[presetNum][2]);
+    bags[REAR_RIGHT].setTargetPressure(currentPresets[presetNum][3]);
+
+    // Start moving to targets
+    for (int i = 0; i < NUM_BAGS; i++) {
+        float current = bags[i].getPressure();
+        float target = bags[i].getTargetPressure();
+        if (current < target - 2.0) {
+            if (!tankLockout) {
+                bags[i].inflate();
+            }
+        } else if (current > target + 2.0) {
+            bags[i].deflate();
+        } else {
+            bags[i].hold();
+        }
+    }
+}
+
+void AirRideWebServer::restoreRideHeight() {
+    if (!hasStoredHeight) return;
+
+    bags[FRONT_LEFT].setTargetPressure(lastHeight[FRONT_LEFT]);
+    bags[FRONT_RIGHT].setTargetPressure(lastHeight[FRONT_RIGHT]);
+    bags[REAR_LEFT].setTargetPressure(lastHeight[REAR_LEFT]);
+    bags[REAR_RIGHT].setTargetPressure(lastHeight[REAR_RIGHT]);
+
+    // Start moving to targets
+    for (int i = 0; i < NUM_BAGS; i++) {
+        float current = bags[i].getPressure();
+        float target = bags[i].getTargetPressure();
+        if (current < target - 2.0) {
+            if (!tankLockout) {
+                bags[i].inflate();
+            }
+        } else if (current > target + 2.0) {
+            bags[i].deflate();
+        }
+    }
+}
+
+const char* AirRideWebServer::getPresetName(int presetNum) const {
+    if (presetNum >= 0 && presetNum < NUM_PRESETS) {
+        return DEFAULT_PRESETS[presetNum].name;
+    }
+    return "Unknown";
 }
 
 void AirRideWebServer::handleNotFound() {

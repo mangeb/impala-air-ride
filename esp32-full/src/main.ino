@@ -388,14 +388,16 @@ void printStatus() {
 
 void printHelp() {
     Serial.println("--- Commands ---");
-    Serial.println("Bags: I0-I3=inflate, D0-D3=deflate, H0-H3=hold, S=stop all");
-    Serial.println("      (0=FL, 1=FR, 2=RL, 3=RR)");
-    Serial.println("Pumps: PA=auto, PO=off, PB=both, P1=pump1, P2=pump2");
-    Serial.println("       PT###=set target PSI (e.g. PT120)");
-    Serial.println("Level: L0=off, L1=front, L2=rear, L3=all");
-    Serial.println("Memory: MS=save height, MH=restore height");
-    Serial.println("Maint:  MR1=reset pump1, MR2=reset pump2 (after service)");
-    Serial.println("Status: ?=help, P=print status");
+    Serial.println("Bags:    I0-I3=inflate, D0-D3=deflate, H0-H3=hold, S=stop all");
+    Serial.println("         T0###=set bag target (e.g. T080=FL to 80 PSI)");
+    Serial.println("         (0=FL, 1=FR, 2=RL, 3=RR)");
+    Serial.println("Presets: R0=Lay, R1=Cruise, R2=Max");
+    Serial.println("Pumps:   PA=auto, PO=off, PB=both, P1=pump1, P2=pump2");
+    Serial.println("         PE=enable/disable toggle, PT###=set target PSI");
+    Serial.println("Level:   L0=off, L1=front, L2=rear, L3=all");
+    Serial.println("Memory:  MS=save height, MH=restore height");
+    Serial.println("Maint:   MR1=reset pump1, MR2=reset pump2 (after service)");
+    Serial.println("Status:  ?=help, P=print status");
     Serial.print("WiFi: Connect to '");
     Serial.print(WIFI_SSID);
     Serial.print("' password '");
@@ -483,6 +485,7 @@ void processSerialCommand() {
                 Serial.println("Ride height saved");
             } else if (subCmd == 'H' || subCmd == 'h') {
                 if (webServer.hasLastRideHeight()) {
+                    webServer.restoreRideHeight();
                     Serial.println("Restoring ride height...");
                 } else {
                     Serial.println("No saved ride height");
@@ -531,6 +534,19 @@ void processSerialCommand() {
                         compressor.setMode(PUMP_2_ONLY);
                         Serial.println("Pumps: PUMP 2 only (manual override)");
                         break;
+                    case 'E':
+                    case 'e': {
+                        bool newState = !webServer.isPumpEnabled();
+                        webServer.setPumpEnabled(newState);
+                        if (!newState) {
+                            compressor.setMode(PUMP_OFF);
+                        } else {
+                            compressor.setMode(PUMP_AUTO);
+                        }
+                        Serial.print("Pumps: ");
+                        Serial.println(newState ? "ENABLED" : "DISABLED");
+                        break;
+                    }
                     case 'T':
                     case 't': {
                         int psi = 0;
@@ -556,6 +572,66 @@ void processSerialCommand() {
                 }
             } else {
                 printStatus();
+            }
+            break;
+        }
+
+        case 'T':
+        case 't': {
+            // Set bag target: T<bag><psi> e.g. T080 = bag 0 target 80 PSI
+            while (!Serial.available()) { delay(1); }
+            int bagNum = Serial.read() - '0';
+            if (bagNum >= 0 && bagNum < NUM_BAGS) {
+                int psi = 0;
+                delay(10); // Wait for digits
+                while (Serial.available()) {
+                    char c = Serial.peek();
+                    if (c >= '0' && c <= '9') {
+                        psi = psi * 10 + (Serial.read() - '0');
+                    } else {
+                        break;
+                    }
+                }
+                if (psi >= (int)MIN_BAG_PSI && psi <= (int)MAX_BAG_PSI) {
+                    bags[bagNum].setTargetPressure((float)psi);
+                    // Start moving to target
+                    float current = bags[bagNum].getPressure();
+                    if (current < psi - 2.0) {
+                        if (!webServer.isTankLockout()) {
+                            bags[bagNum].inflate();
+                        }
+                    } else if (current > psi + 2.0) {
+                        bags[bagNum].deflate();
+                    } else {
+                        bags[bagNum].hold();
+                    }
+                    Serial.print(bags[bagNum].getName());
+                    Serial.print(" target set to ");
+                    Serial.print(psi);
+                    Serial.println(" PSI");
+                } else {
+                    Serial.print("Invalid PSI (0-");
+                    Serial.print((int)MAX_BAG_PSI);
+                    Serial.println(")");
+                }
+            } else {
+                Serial.println("Invalid bag (0=FL, 1=FR, 2=RL, 3=RR)");
+            }
+            break;
+        }
+
+        case 'R':
+        case 'r': {
+            // Apply preset: R0=Lay, R1=Cruise, R2=Max
+            while (!Serial.available()) { delay(1); }
+            int presetNum = Serial.read() - '0';
+            if (presetNum >= 0 && presetNum < NUM_PRESETS) {
+                webServer.applyPreset(presetNum);
+                Serial.print("Preset ");
+                Serial.print(webServer.getPresetName(presetNum));
+                Serial.println(" applied");
+            } else {
+                Serial.println("Invalid preset (0=Lay, 1=Cruise, 2=Max)");
             }
             break;
         }
