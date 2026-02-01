@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Settings, Activity, ShieldAlert, ChevronUp, ChevronDown } from 'lucide-react';
+import { Settings, Activity, ChevronUp, ChevronDown } from 'lucide-react';
 import { Gauge } from './components/Gauge';
 import { HorizontalGauge } from './components/HorizontalGauge';
 import { ControlButton } from './components/ControlButton';
@@ -214,16 +214,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Emergency Dump */}
-              <div className="mt-4 sm:mt-8 pt-4 sm:pt-8 border-t border-black/10">
-                <button
-                  onClick={() => applyPreset(0)}
-                  className="w-full py-4 sm:py-5 bg-impala-red text-white rounded-xl flex items-center justify-center gap-3 font-black uppercase tracking-[0.3em] text-[10px] hover:brightness-110 transition-all shadow-xl"
-                >
-                  <ShieldAlert className="w-5 h-5" />
-                  Emergency Dump
-                </button>
-              </div>
             </div>
           </div>
         </section>
