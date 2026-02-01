@@ -94,8 +94,6 @@ class AirRideWebServer {
     void handleLevel();
     void handlePumpOverride();
     void handleNotFound();
-
-    uint32_t getHtmlSize();
 };
 
 #endif // AIRRIDE_WEBSERVER_H

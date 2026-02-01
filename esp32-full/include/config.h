@@ -184,14 +184,6 @@
 #define NUM_BAGS    4
 
 // ============================================
-// UI HOLD BUTTON TIMING
-// ============================================
-
-#define HOLD_DEBOUNCE_MS        50     // Button debounce time
-#define HOLD_REPEAT_DELAY_MS    500    // Initial delay before repeat
-#define HOLD_REPEAT_RATE_MS     100    // Repeat rate when held
-
-// ============================================
 // DEMO / BENCH TEST MODE
 // ============================================
 // When no sensors are connected, use simulated default values

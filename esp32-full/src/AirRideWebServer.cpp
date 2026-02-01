@@ -536,6 +536,3 @@ void AirRideWebServer::updateLevelMode() {
     }
 }
 
-uint32_t AirRideWebServer::getHtmlSize() {
-    return HTML_CONTENT_SIZE;
-}
