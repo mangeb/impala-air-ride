@@ -18,6 +18,32 @@
   body {
     @apply bg-impala-black text-impala-chrome font-sans overflow-hidden;
     background-image: radial-gradient(circle at center, #0a0a0a 0%, #020202 100%);
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    /* Safe area insets for iPhone notch/home indicator */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+}
+
+/* Responsive gauge sizing via CSS custom properties */
+:root {
+  /* Mobile: 160px gauges */
+  --gauge-size: 10rem;
+  --gauge-mark-origin: 76px;
+  --gauge-needle-major-h: 70px;
+  --gauge-needle-minor-h: 46px;
+  --gauge-readout-bottom: 1rem;
+  --gauge-readout-size: 1.25rem;
+}
+@media (min-width: 640px) {
+  :root {
+    /* Desktop: 192px gauges */
+    --gauge-size: 12rem;
+    --gauge-mark-origin: 92px;
+    --gauge-needle-major-h: 88px;
+    --gauge-needle-minor-h: 56px;
+    --gauge-readout-bottom: 1.5rem;
+    --gauge-readout-size: 1.5rem;
   }
 }
 
