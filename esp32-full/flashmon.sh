@@ -1,5 +1,5 @@
 #!/bin/bash
-# Flash firmware to ESP32-S3
+# Flash firmware to ESP32-S3 and open serial monitor
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -25,3 +25,10 @@ echo "  Flashing to $PORT"
 echo "==============================="
 cd "$SCRIPT_DIR"
 python3 -m platformio run -t upload --upload-port "$PORT"
+
+echo ""
+echo "==============================="
+echo "  Opening serial monitor"
+echo "==============================="
+sleep 1
+screen "$PORT" 115200
