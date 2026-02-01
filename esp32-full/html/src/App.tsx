@@ -198,6 +198,7 @@ export default function App() {
               <div className="flex items-center justify-between px-1 sm:px-2">
                 <button
                   onClick={() => airService.togglePumpOverride()}
+                  onTouchEnd={(e) => { e.preventDefault(); airService.togglePumpOverride(); }}
                   className="flex items-center gap-2 sm:gap-3 py-0.5 sm:py-2 rounded-lg"
                 >
                   <div className="flex items-center gap-1.5 sm:gap-2">

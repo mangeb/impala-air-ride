@@ -76,20 +76,17 @@ export const Gauge: React.FC<GaugeProps> = ({
                 }}
               />
             ))}
-            {/* PSI number labels at major marks */}
+            {/* PSI number labels at major marks (desktop) */}
             {majorMarks.map((psi) => {
               const angle = psiToAngle(psi);
               const rad = (angle - 90) * (Math.PI / 180);
-              // Position numbers inside the tick marks (closer to center)
-              const radiusMobile = 52; // px from center on mobile
-              const radiusDesktop = 64; // px from center on desktop
               return (
                 <span
                   key={`label-${psi}`}
                   className="absolute text-[6px] sm:text-[8px] font-mono font-bold text-black/35 leading-none hidden sm:block"
                   style={{
-                    left: `calc(50% + ${Math.cos(rad) * radiusDesktop}px)`,
-                    top: `calc(50% + ${Math.sin(rad) * radiusDesktop}px)`,
+                    left: `calc(50% + ${Math.cos(rad)} * var(--gauge-label-radius))`,
+                    top: `calc(50% + ${Math.sin(rad)} * var(--gauge-label-radius))`,
                     transform: 'translate(-50%, -50%)',
                   }}
                 >
@@ -101,14 +98,13 @@ export const Gauge: React.FC<GaugeProps> = ({
             {majorMarks.filter((psi) => psi % 20 === 0 || psi === max).map((psi) => {
               const angle = psiToAngle(psi);
               const rad = (angle - 90) * (Math.PI / 180);
-              const radiusMobile = 28;
               return (
                 <span
                   key={`label-m-${psi}`}
                   className="absolute text-[5.5px] font-mono font-bold text-black/30 leading-none sm:hidden"
                   style={{
-                    left: `calc(50% + ${Math.cos(rad) * radiusMobile}px)`,
-                    top: `calc(50% + ${Math.sin(rad) * radiusMobile}px)`,
+                    left: `calc(50% + ${Math.cos(rad)} * var(--gauge-label-radius))`,
+                    top: `calc(50% + ${Math.sin(rad)} * var(--gauge-label-radius))`,
                     transform: 'translate(-50%, -50%)',
                   }}
                 >
