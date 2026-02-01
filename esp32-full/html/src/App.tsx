@@ -121,20 +121,20 @@ export default function App() {
       {/* Main Content Area - Scroll Snapping Enabled */}
       <main ref={mainRef} className="flex-1 overflow-y-auto relative snap-y snap-mandatory scroll-smooth overscroll-none">
         {/* Unit 1: Gauges, Tank, and Master Controls */}
-        <section className="snap-start min-h-full flex flex-col p-3 sm:p-4 gap-3 sm:gap-6">
+        <section className="snap-start min-h-dvh flex flex-col p-1.5 sm:p-4 gap-1.5 sm:gap-6">
           {/* Engine-Turned Aluminum Panel for Gauges and Controls */}
-          <div className="engine-turned rounded-[2rem] sm:rounded-[2.5rem] p-2 sm:p-8 border-4 border-black/90 shadow-[0_15px_40px_rgba(0,0,0,0.9)] relative overflow-hidden flex-1 flex flex-col justify-center">
+          <div className="engine-turned rounded-[1.25rem] sm:rounded-[2.5rem] p-1.5 sm:p-8 border-2 sm:border-4 border-black/90 shadow-[0_15px_40px_rgba(0,0,0,0.9)] relative overflow-hidden flex-1 flex flex-col justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-black/20 pointer-events-none" />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-2 sm:gap-x-4 lg:gap-x-8 gap-y-2 sm:gap-y-12 relative z-10 items-center justify-items-center">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-1 sm:gap-x-4 lg:gap-x-8 gap-y-1 sm:gap-y-12 relative z-10 items-center justify-items-center">
               {[
                 { id: 'FL' as Corner, label: 'Front Left' },
                 { id: 'FR' as Corner, label: 'Front Right' },
                 { id: 'RL' as Corner, label: 'Rear Left' },
                 { id: 'RR' as Corner, label: 'Rear Right' }
               ].map(corner => (
-                <div key={corner.id} className="flex flex-col items-center gap-1 sm:gap-4">
+                <div key={corner.id} className="flex flex-col items-center gap-0 sm:gap-4">
                   <Gauge label={corner.label} value={state.pressures[corner.id]} target={state.targets[corner.id]} />
-                  <div className="flex gap-4 sm:gap-6">
+                  <div className="flex gap-3 sm:gap-6">
                     <ControlButton direction="up" label="Rise" onPressStart={() => handleControl(corner.id, 'up', true)} onPressEnd={() => handleControl(corner.id, 'up', false)} />
                     <ControlButton direction="down" label="Drop" onPressStart={() => handleControl(corner.id, 'down', true)} onPressEnd={() => handleControl(corner.id, 'down', false)} />
                   </div>
@@ -143,7 +143,7 @@ export default function App() {
             </div>
 
             {/* ALL Rise / Drop Controls */}
-            <div className="flex justify-center items-center gap-6 sm:gap-10 relative z-10 mt-2 sm:mt-4 pb-1 sm:pb-2">
+            <div className="flex justify-center items-center gap-4 sm:gap-10 relative z-10 mt-1 sm:mt-4 pb-0 sm:pb-2">
               <motion.button
                 whileTap={{ scale: 0.92, y: 1 }}
                 onMouseDown={() => handleControl('ALL', 'up', true)}
@@ -151,12 +151,12 @@ export default function App() {
                 onMouseLeave={() => handleControl('ALL', 'up', false)}
                 onTouchStart={(e) => { e.preventDefault(); handleControl('ALL', 'up', true); }}
                 onTouchEnd={(e) => { e.preventDefault(); handleControl('ALL', 'up', false); }}
-                className="flex items-center gap-2 sm:gap-3 px-4 py-2 sm:px-6 sm:py-3 rounded-xl bg-gradient-to-b from-white via-impala-chrome to-impala-silver border-2 border-black/40 shadow-[0_4px_6px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.8)] transition-all active:shadow-inner active:brightness-90"
+                className="flex items-center gap-1.5 sm:gap-3 px-3 py-1.5 sm:px-6 sm:py-3 rounded-xl bg-gradient-to-b from-white via-impala-chrome to-impala-silver border-2 border-black/40 shadow-[0_4px_6px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.8)] transition-all active:shadow-inner active:brightness-90"
               >
                 <div className="bg-black rounded-md p-0.5 sm:p-1 shadow-inner">
-                  <ChevronUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={4} />
+                  <ChevronUp className="w-4 h-4 sm:w-6 sm:h-6 text-white" strokeWidth={4} />
                 </div>
-                <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-black/60">Rise All</span>
+                <span className="text-[7px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-black/60">Rise All</span>
               </motion.button>
 
               <motion.button
@@ -166,37 +166,25 @@ export default function App() {
                 onMouseLeave={() => handleControl('ALL', 'down', false)}
                 onTouchStart={(e) => { e.preventDefault(); handleControl('ALL', 'down', true); }}
                 onTouchEnd={(e) => { e.preventDefault(); handleControl('ALL', 'down', false); }}
-                className="flex items-center gap-2 sm:gap-3 px-4 py-2 sm:px-6 sm:py-3 rounded-xl bg-gradient-to-b from-white via-impala-chrome to-impala-silver border-2 border-black/40 shadow-[0_4px_6px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.8)] transition-all active:shadow-inner active:brightness-90"
+                className="flex items-center gap-1.5 sm:gap-3 px-3 py-1.5 sm:px-6 sm:py-3 rounded-xl bg-gradient-to-b from-white via-impala-chrome to-impala-silver border-2 border-black/40 shadow-[0_4px_6px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.8)] transition-all active:shadow-inner active:brightness-90"
               >
                 <div className="bg-black rounded-md p-0.5 sm:p-1 shadow-inner">
-                  <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={4} />
+                  <ChevronDown className="w-4 h-4 sm:w-6 sm:h-6 text-white" strokeWidth={4} />
                 </div>
-                <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-black/60">Drop All</span>
+                <span className="text-[7px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-black/60">Drop All</span>
               </motion.button>
             </div>
           </div>
 
           {/* Tank Status - Full width panel */}
-          <div className="engine-turned rounded-[1.5rem] sm:rounded-[2rem] p-3 sm:p-4 border-4 border-black/90 shadow-[0_10px_30px_rgba(0,0,0,0.8)] relative overflow-hidden shrink-0">
+          <div className="engine-turned rounded-[1rem] sm:rounded-[2rem] p-1 sm:p-4 border-2 sm:border-4 border-black/90 shadow-[0_10px_30px_rgba(0,0,0,0.8)] relative overflow-hidden shrink-0">
             <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-black/20 pointer-events-none" />
 
-            <div className="relative z-10 space-y-2 sm:space-y-4">
+            <div className="relative z-10 space-y-1 sm:space-y-4">
               <div className="flex items-center justify-between px-1 sm:px-2">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <Activity className={`w-3 h-3 sm:w-4 sm:h-4 ${state.compressorActive ? 'text-impala-red animate-pulse' : 'text-black/40'}`} />
                   <span className="text-[7px] sm:text-[9px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-black/60">Tank</span>
-                </div>
-
-                {/* Dual Pump LED Indicators */}
-                <div className="flex gap-3 sm:gap-6">
-                  <div className="flex flex-col items-center gap-0.5 sm:gap-1">
-                    <div className={`w-5 h-5 sm:w-7 sm:h-7 rounded-full transition-all duration-300 border-2 border-black/40 ${state.compressorActive ? 'bg-amber-500 shadow-[0_0_16px_6px_rgba(245,158,11,0.6),0_0_30px_rgba(245,158,11,0.3)]' : 'bg-black/20'}`} />
-                    <span className="text-[6px] sm:text-[7px] font-black text-black/40 uppercase tracking-tighter">P1</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-0.5 sm:gap-1">
-                    <div className={`w-5 h-5 sm:w-7 sm:h-7 rounded-full transition-all duration-300 border-2 border-black/40 ${state.compressorActive && state.pressures.tank < 105 ? 'bg-amber-500 shadow-[0_0_16px_6px_rgba(245,158,11,0.6),0_0_30px_rgba(245,158,11,0.3)]' : 'bg-black/20'}`} />
-                    <span className="text-[6px] sm:text-[7px] font-black text-black/40 uppercase tracking-tighter">P2</span>
-                  </div>
                 </div>
               </div>
 
@@ -206,22 +194,21 @@ export default function App() {
                 target={state.compressorActive ? 150 : 120}
               />
 
-              {/* Vintage Pump Override Toggle */}
-              <button
-                onClick={() => airService.togglePumpOverride()}
-                className="flex items-center justify-between w-full px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg"
-              >
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <Power className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${state.pumpEnabled !== false ? 'text-black/50' : 'text-red-600'}`} />
-                  <span className={`text-[7px] sm:text-[8px] font-black uppercase tracking-[0.15em] ${state.pumpEnabled !== false ? 'text-black/50' : 'text-red-600'}`}>
-                    Pumps
-                  </span>
-                </div>
+              {/* Pump Override Toggle + Pump LEDs */}
+              <div className="flex items-center justify-between px-1 sm:px-2">
+                <button
+                  onClick={() => airService.togglePumpOverride()}
+                  className="flex items-center gap-2 sm:gap-3 py-0.5 sm:py-2 rounded-lg"
+                >
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <Power className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${state.pumpEnabled !== false ? 'text-black/50' : 'text-red-600'}`} />
+                    <span className={`text-[7px] sm:text-[8px] font-black uppercase tracking-[0.15em] ${state.pumpEnabled !== false ? 'text-black/50' : 'text-red-600'}`}>
+                      Pumps
+                    </span>
+                  </div>
 
-                {/* Vintage Chrome Rocker Switch */}
-                <div className="relative">
-                  {/* Chrome bezel housing */}
-                  <div className="w-12 h-6 sm:w-14 sm:h-7 rounded-sm bg-gradient-to-b from-impala-chrome to-impala-silver border-2 border-black/50 shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.8)] overflow-hidden">
+                  {/* Vintage Chrome Rocker Switch */}
+                  <div className="w-10 h-5 sm:w-14 sm:h-7 rounded-sm bg-gradient-to-b from-impala-chrome to-impala-silver border-2 border-black/50 shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.8)] overflow-hidden relative">
                     {/* Dark inset channel */}
                     <div className="absolute inset-[3px] rounded-[1px] bg-gradient-to-b from-black/70 to-black/50 shadow-inner">
                       {/* ON / OFF labels */}
@@ -243,17 +230,26 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                </button>
 
-                  {/* Status indicator LED */}
-                  <div className={`absolute -top-1.5 -right-1.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-black/40 transition-all duration-300 ${state.pumpEnabled !== false ? 'bg-green-500 shadow-[0_0_12px_4px_rgba(34,197,94,0.5),0_0_24px_rgba(34,197,94,0.3)]' : 'bg-red-600 shadow-[0_0_12px_4px_rgba(220,38,38,0.5),0_0_24px_rgba(220,38,38,0.3)]'}`} />
+                {/* Dual Pump LED Indicators — same size as connection LED */}
+                <div className="flex gap-3 sm:gap-5">
+                  <div className="flex flex-col items-center gap-0.5 sm:gap-1">
+                    <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full transition-all duration-300 border border-black/40 ${state.compressorActive ? 'bg-amber-500 shadow-[0_0_16px_6px_rgba(245,158,11,0.6),0_0_30px_rgba(245,158,11,0.3)]' : 'bg-black/20'}`} />
+                    <span className="text-[5px] sm:text-[7px] font-black text-black/40 uppercase tracking-tighter">P1</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5 sm:gap-1">
+                    <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full transition-all duration-300 border border-black/40 ${state.compressorActive && state.pressures.tank < 105 ? 'bg-amber-500 shadow-[0_0_16px_6px_rgba(245,158,11,0.6),0_0_30px_rgba(245,158,11,0.3)]' : 'bg-black/20'}`} />
+                    <span className="text-[5px] sm:text-[7px] font-black text-black/40 uppercase tracking-tighter">P2</span>
+                  </div>
                 </div>
-              </button>
+              </div>
             </div>
           </div>
         </section>
 
         {/* Unit 2: Presets - Below the fold */}
-        <section className="snap-start min-h-full p-3 sm:p-4 flex flex-col gap-3 sm:gap-6">
+        <section className="snap-start min-h-dvh p-3 sm:p-4 flex flex-col gap-3 sm:gap-6">
           <div className="engine-turned rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-8 border-4 border-black/90 shadow-[0_15px_40px_rgba(0,0,0,0.9)] relative overflow-hidden flex-1">
             <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-black/20 pointer-events-none" />
 

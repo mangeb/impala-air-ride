@@ -35,9 +35,9 @@ export const Gauge: React.FC<GaugeProps> = ({
   const psiToAngle = (psi: number) => ((psi - min) / (max - min)) * 240 - 120;
 
   return (
-    <div className="flex flex-col items-center justify-center p-1">
-      <div className="mb-1 sm:mb-2 text-center">
-        <span className="text-black/70 text-[8px] sm:text-[10px] uppercase tracking-[0.2em] sm:tracking-[0.3em] font-black drop-shadow-sm">{label}</span>
+    <div className="flex flex-col items-center justify-center p-0 sm:p-1">
+      <div className="mb-0 sm:mb-2 text-center">
+        <span className="text-black/70 text-[7px] sm:text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.3em] font-black drop-shadow-sm">{label}</span>
       </div>
 
       {/* Gauge container - responsive via CSS custom properties */}
@@ -101,7 +101,7 @@ export const Gauge: React.FC<GaugeProps> = ({
             {majorMarks.filter((psi) => psi % 20 === 0 || psi === max).map((psi) => {
               const angle = psiToAngle(psi);
               const rad = (angle - 90) * (Math.PI / 180);
-              const radiusMobile = 44;
+              const radiusMobile = 28;
               return (
                 <span
                   key={`label-m-${psi}`}
@@ -154,7 +154,7 @@ export const Gauge: React.FC<GaugeProps> = ({
             >
               {Math.round(value)}
             </span>
-            <span className="text-black/40 text-[7px] sm:text-[9px] font-black uppercase tracking-[0.2em]">{unit}</span>
+            <span className="text-black/40 text-[5px] sm:text-[9px] font-black uppercase tracking-[0.2em] hidden sm:block">{unit}</span>
           </div>
         </div>
       </div>

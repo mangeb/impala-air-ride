@@ -35,13 +35,13 @@
 
 /* Responsive gauge sizing via CSS custom properties */
 :root {
-  /* Mobile: 160px gauges */
-  --gauge-size: 10rem;
-  --gauge-mark-origin: 76px;
-  --gauge-needle-major-h: 70px;
-  --gauge-needle-minor-h: 46px;
-  --gauge-readout-bottom: 1rem;
-  --gauge-readout-size: 1.25rem;
+  /* Mobile: compact gauges to fit gauges + tank in one screen with browser chrome */
+  --gauge-size: 6.5rem;
+  --gauge-mark-origin: 49px;
+  --gauge-needle-major-h: 44px;
+  --gauge-needle-minor-h: 29px;
+  --gauge-readout-bottom: 0.4rem;
+  --gauge-readout-size: 0.85rem;
 }
 @media (min-width: 640px) {
   :root {
