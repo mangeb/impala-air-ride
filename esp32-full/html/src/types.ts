@@ -20,4 +20,5 @@ export interface SystemState {
   targets: TargetData;
   compressorActive: boolean;
   connected: boolean;
+  pumpEnabled?: boolean;
 }

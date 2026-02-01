@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Settings, Activity, ChevronUp, ChevronDown } from 'lucide-react';
+import { Settings, Activity, Power, ChevronUp, ChevronDown } from 'lucide-react';
 import { Gauge } from './components/Gauge';
 import { HorizontalGauge } from './components/HorizontalGauge';
 import { ControlButton } from './components/ControlButton';
@@ -124,6 +124,20 @@ export default function App() {
                   value={state.pressures.tank}
                   target={state.compressorActive ? 150 : 120}
                 />
+
+                {/* Pump Override Toggle */}
+                <button
+                  onClick={() => airService.togglePumpOverride()}
+                  className={`flex items-center justify-between w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border-2 transition-all ${state.pumpEnabled !== false ? 'border-black/20 bg-black/5' : 'border-red-600/40 bg-red-900/10'}`}
+                >
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <Power className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${state.pumpEnabled !== false ? 'text-black/50' : 'text-red-600'}`} />
+                    <span className={`text-[7px] sm:text-[8px] font-black uppercase tracking-[0.15em] ${state.pumpEnabled !== false ? 'text-black/50' : 'text-red-600'}`}>Pumps</span>
+                  </div>
+                  <div className={`w-8 h-4 sm:w-10 sm:h-5 rounded-full relative transition-all ${state.pumpEnabled !== false ? 'bg-green-500/80' : 'bg-red-600/60'}`}>
+                    <div className={`absolute top-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white shadow-md transition-all ${state.pumpEnabled !== false ? 'left-[calc(100%-0.875rem)] sm:left-[calc(100%-1.125rem)]' : 'left-0.5'}`} />
+                  </div>
+                </button>
               </div>
             </div>
 

@@ -58,6 +58,10 @@ class AirRideWebServer {
     bool isTankLockout() const { return tankLockout; }
     void updateTankLockout(float tankPressure);
 
+    // Pump enable/disable override
+    bool isPumpEnabled() const { return pumpEnabled; }
+    void setPumpEnabled(bool enabled) { pumpEnabled = enabled; }
+
   private:
     AirBag* bags;
     Compressor* compressor;
@@ -73,6 +77,9 @@ class AirRideWebServer {
     // Tank lockout hysteresis
     bool tankLockout;
 
+    // Pump enable/disable
+    bool pumpEnabled;
+
     // Ride height memory
     bool hasStoredHeight;
     float lastHeight[NUM_BAGS];
@@ -86,6 +93,7 @@ class AirRideWebServer {
     void handleLevel();
     void handleSaveHeight();
     void handleRestoreHeight();
+    void handlePumpOverride();
     void handleNotFound();
 
     uint32_t getHtmlSize();

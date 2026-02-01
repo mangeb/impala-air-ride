@@ -10,6 +10,7 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
       levelMode(LEVEL_OFF),
       lastLevelAdjust(0),
       tankLockout(false),
+      pumpEnabled(true),
       hasStoredHeight(false) {
     for (int i = 0; i < NUM_BAGS; i++) {
         lastHeight[i] = 0.0;
@@ -40,6 +41,7 @@ void AirRideWebServer::begin() {
     server.on("/l", HTTP_GET, [this]() { handleLevel(); });
     server.on("/sh", HTTP_GET, [this]() { handleSaveHeight(); });
     server.on("/rh", HTTP_GET, [this]() { handleRestoreHeight(); });
+    server.on("/po", HTTP_GET, [this]() { handlePumpOverride(); });
     server.onNotFound([this]() { handleNotFound(); });
 
     server.begin();
@@ -106,6 +108,8 @@ void AirRideWebServer::handleStatus() {
     json += tankLockout ? "true" : "false";
     json += ",\"hasHeight\":";
     json += hasStoredHeight ? "true" : "false";
+    json += ",\"pumpEnabled\":";
+    json += pumpEnabled ? "true" : "false";
 
     // Maintenance status
     bool p1Due = compressor->isPump1MaintenanceDue();
@@ -336,6 +340,18 @@ void AirRideWebServer::handleRestoreHeight() {
                 bags[i].deflate();
             }
         }
+    }
+    handleStatus();
+}
+
+void AirRideWebServer::handlePumpOverride() {
+    pumpEnabled = !pumpEnabled;
+    Serial.print("[WEB] /po PUMP OVERRIDE ");
+    Serial.println(pumpEnabled ? "ENABLED" : "DISABLED");
+    if (!pumpEnabled) {
+        compressor->setMode(PUMP_OFF);
+    } else {
+        compressor->setMode(PUMP_AUTO);
     }
     handleStatus();
 }

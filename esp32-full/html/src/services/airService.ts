@@ -112,6 +112,7 @@ function parseEsp32Status(data: any) {
     level: data.level || 0,
     lockout: data.lockout || false,
     hasHeight: data.hasHeight || false,
+    pumpEnabled: data.pumpEnabled !== false,
     pump: data.pump || '',
     runtime: data.runtime || '',
     maint: data.maint || null,
@@ -220,6 +221,15 @@ export const airService = {
   async restoreHeight() {
     try {
       await fetch(`${BASE_URL}/rh`);
+    } catch (e) {
+      // Offline: no-op
+    }
+  },
+
+  // Toggle pump override: GET /po
+  async togglePumpOverride() {
+    try {
+      await fetch(`${BASE_URL}/po`);
     } catch (e) {
       // Offline: no-op
     }

@@ -159,7 +159,13 @@ void loop() {
         tankPressure = readTankPressureSmoothed();
 
         // Update compressor (handles pump logic automatically)
-        compressor.update(tankPressure);
+        // Only run pump logic if pumps are enabled via override toggle
+        if (webServer.isPumpEnabled()) {
+            compressor.update(tankPressure);
+        } else {
+            compressor.setMode(PUMP_OFF);
+            compressor.update(tankPressure);
+        }
 
         // Update all bags (reads pressure, enforces safety limits, checks timeouts)
         for (int i = 0; i < NUM_BAGS; i++) {
