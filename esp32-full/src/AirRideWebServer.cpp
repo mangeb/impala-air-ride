@@ -15,6 +15,13 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
     for (int i = 0; i < NUM_BAGS; i++) {
         lastHeight[i] = 0.0;
     }
+    // Initialize presets from defaults
+    for (int p = 0; p < NUM_PRESETS; p++) {
+        currentPresets[p][0] = DEFAULT_PRESETS[p].frontLeft;
+        currentPresets[p][1] = DEFAULT_PRESETS[p].frontRight;
+        currentPresets[p][2] = DEFAULT_PRESETS[p].rearLeft;
+        currentPresets[p][3] = DEFAULT_PRESETS[p].rearRight;
+    }
 }
 
 void AirRideWebServer::begin() {
@@ -28,8 +35,9 @@ void AirRideWebServer::begin() {
 
     wifiReady = true;
 
-    // Load saved ride height from EEPROM
+    // Load saved ride height and custom presets from EEPROM
     loadRideHeight();
+    loadPresetsFromEEPROM();
 
     // Setup routes
     server.on("/", HTTP_GET, [this]() { handleRoot(); });
@@ -38,6 +46,7 @@ void AirRideWebServer::begin() {
     server.on("/bh", HTTP_GET, [this]() { handleBagHold(); });
     server.on("/bt", HTTP_GET, [this]() { handleBagTarget(); });
     server.on("/p", HTTP_GET, [this]() { handlePreset(); });
+    server.on("/sp", HTTP_GET, [this]() { handleSavePreset(); });
     server.on("/l", HTTP_GET, [this]() { handleLevel(); });
     server.on("/sh", HTTP_GET, [this]() { handleSaveHeight(); });
     server.on("/rh", HTTP_GET, [this]() { handleRestoreHeight(); });
@@ -70,7 +79,7 @@ void AirRideWebServer::handleRoot() {
     Serial.println("[WEB] GET / - Serving React UI (gzip, " + String(HTML_CONTENT_SIZE) + " bytes)");
     // Serve gzipped React UI from PROGMEM
     server.sendHeader("Content-Encoding", "gzip");
-    server.sendHeader("Cache-Control", "max-age=86400");
+    server.sendHeader("Cache-Control", "no-cache");
     server.send_P(200, "text/html", (const char*)HTML_CONTENT, HTML_CONTENT_SIZE);
 }
 
@@ -110,6 +119,20 @@ void AirRideWebServer::handleStatus() {
     json += hasStoredHeight ? "true" : "false";
     json += ",\"pumpEnabled\":";
     json += pumpEnabled ? "true" : "false";
+
+    // Current preset values (may be customized)
+    json += ",\"presets\":[";
+    for (int p = 0; p < NUM_PRESETS; p++) {
+        if (p > 0) json += ",";
+        json += "[";
+        for (int i = 0; i < 4; i++) {
+            if (i > 0) json += ",";
+            float v = currentPresets[p][i];
+            json += (isnan(v) || isinf(v)) ? "0" : String(v, 0);
+        }
+        json += "]";
+    }
+    json += "]";
 
     // Maintenance status
     bool p1Due = compressor->isPump1MaintenanceDue();
@@ -245,18 +268,18 @@ void AirRideWebServer::handlePreset() {
             Serial.print(" (");
             Serial.print(presetNum);
             Serial.print(") FL=");
-            Serial.print(DEFAULT_PRESETS[presetNum].frontLeft, 0);
+            Serial.print(currentPresets[presetNum][0], 0);
             Serial.print(" FR=");
-            Serial.print(DEFAULT_PRESETS[presetNum].frontRight, 0);
+            Serial.print(currentPresets[presetNum][1], 0);
             Serial.print(" RL=");
-            Serial.print(DEFAULT_PRESETS[presetNum].rearLeft, 0);
+            Serial.print(currentPresets[presetNum][2], 0);
             Serial.print(" RR=");
-            Serial.println(DEFAULT_PRESETS[presetNum].rearRight, 0);
+            Serial.println(currentPresets[presetNum][3], 0);
 
-            bags[FRONT_LEFT].setTargetPressure(DEFAULT_PRESETS[presetNum].frontLeft);
-            bags[FRONT_RIGHT].setTargetPressure(DEFAULT_PRESETS[presetNum].frontRight);
-            bags[REAR_LEFT].setTargetPressure(DEFAULT_PRESETS[presetNum].rearLeft);
-            bags[REAR_RIGHT].setTargetPressure(DEFAULT_PRESETS[presetNum].rearRight);
+            bags[FRONT_LEFT].setTargetPressure(currentPresets[presetNum][0]);
+            bags[FRONT_RIGHT].setTargetPressure(currentPresets[presetNum][1]);
+            bags[REAR_LEFT].setTargetPressure(currentPresets[presetNum][2]);
+            bags[REAR_RIGHT].setTargetPressure(currentPresets[presetNum][3]);
 
             // Start moving to targets
             for (int i = 0; i < NUM_BAGS; i++) {
@@ -275,6 +298,129 @@ void AirRideWebServer::handlePreset() {
         }
     }
     handleStatus();
+}
+
+void AirRideWebServer::handleSavePreset() {
+    if (server.hasArg("n") && server.hasArg("fl") && server.hasArg("fr") && server.hasArg("rl") && server.hasArg("rr")) {
+        int presetNum = server.arg("n").toInt();
+        float fl = server.arg("fl").toFloat();
+        float fr = server.arg("fr").toFloat();
+        float rl = server.arg("rl").toFloat();
+        float rr = server.arg("rr").toFloat();
+
+        if (presetNum >= 0 && presetNum < NUM_PRESETS) {
+            // Clamp values to safe range
+            fl = constrain(fl, MIN_BAG_PSI, MAX_BAG_PSI);
+            fr = constrain(fr, MIN_BAG_PSI, MAX_BAG_PSI);
+            rl = constrain(rl, MIN_BAG_PSI, MAX_BAG_PSI);
+            rr = constrain(rr, MIN_BAG_PSI, MAX_BAG_PSI);
+
+            currentPresets[presetNum][0] = fl;
+            currentPresets[presetNum][1] = fr;
+            currentPresets[presetNum][2] = rl;
+            currentPresets[presetNum][3] = rr;
+
+            savePresetToEEPROM(presetNum);
+
+            Serial.print("[WEB] /sp SAVE PRESET ");
+            Serial.print(DEFAULT_PRESETS[presetNum].name);
+            Serial.print(" FL=");
+            Serial.print(fl, 0);
+            Serial.print(" FR=");
+            Serial.print(fr, 0);
+            Serial.print(" RL=");
+            Serial.print(rl, 0);
+            Serial.print(" RR=");
+            Serial.println(rr, 0);
+        }
+    }
+    handleStatus();
+}
+
+void AirRideWebServer::savePresetToEEPROM(int presetNum) {
+    if (presetNum < 0 || presetNum >= NUM_PRESETS) return;
+
+    // Each preset is 16 bytes (4 floats)
+    int baseAddr;
+    switch (presetNum) {
+        case 0: baseAddr = EEPROM_ADDR_PRESET1; break;
+        case 1: baseAddr = EEPROM_ADDR_PRESET2; break;
+        case 2: baseAddr = EEPROM_ADDR_PRESET3; break;
+        default: return;
+    }
+
+    EEPROM.put(baseAddr,      currentPresets[presetNum][0]); // FL
+    EEPROM.put(baseAddr + 4,  currentPresets[presetNum][1]); // FR
+    EEPROM.put(baseAddr + 8,  currentPresets[presetNum][2]); // RL
+    EEPROM.put(baseAddr + 12, currentPresets[presetNum][3]); // RR
+
+    // Set the flag bit for this preset
+    uint8_t flags = EEPROM.read(EEPROM_ADDR_PRESET_FLAG);
+    flags |= (1 << presetNum);
+    EEPROM.write(EEPROM_ADDR_PRESET_FLAG, flags);
+
+    EEPROM.commit();
+    Serial.print("Preset ");
+    Serial.print(presetNum);
+    Serial.println(" saved to EEPROM");
+}
+
+void AirRideWebServer::loadPresetsFromEEPROM() {
+    if (EEPROM.read(EEPROM_ADDR_MAGIC) != EEPROM_MAGIC) return;
+
+    uint8_t flags = EEPROM.read(EEPROM_ADDR_PRESET_FLAG);
+
+    for (int p = 0; p < NUM_PRESETS; p++) {
+        if (!(flags & (1 << p))) continue; // Not saved, keep default
+
+        int baseAddr;
+        switch (p) {
+            case 0: baseAddr = EEPROM_ADDR_PRESET1; break;
+            case 1: baseAddr = EEPROM_ADDR_PRESET2; break;
+            case 2: baseAddr = EEPROM_ADDR_PRESET3; break;
+            default: continue;
+        }
+
+        EEPROM.get(baseAddr,      currentPresets[p][0]);
+        EEPROM.get(baseAddr + 4,  currentPresets[p][1]);
+        EEPROM.get(baseAddr + 8,  currentPresets[p][2]);
+        EEPROM.get(baseAddr + 12, currentPresets[p][3]);
+
+        // Validate — discard if any value is NaN/Inf/out of range
+        bool valid = true;
+        for (int i = 0; i < 4; i++) {
+            if (isnan(currentPresets[p][i]) || isinf(currentPresets[p][i])
+                || currentPresets[p][i] < MIN_BAG_PSI || currentPresets[p][i] > MAX_BAG_PSI) {
+                valid = false;
+                break;
+            }
+        }
+        if (!valid) {
+            currentPresets[p][0] = DEFAULT_PRESETS[p].frontLeft;
+            currentPresets[p][1] = DEFAULT_PRESETS[p].frontRight;
+            currentPresets[p][2] = DEFAULT_PRESETS[p].rearLeft;
+            currentPresets[p][3] = DEFAULT_PRESETS[p].rearRight;
+            // Clear flag so we don't re-read garbage next boot
+            flags &= ~(1 << p);
+            EEPROM.write(EEPROM_ADDR_PRESET_FLAG, flags);
+            EEPROM.commit();
+            Serial.print("Invalid EEPROM data for preset ");
+            Serial.print(p);
+            Serial.println(" — using defaults");
+            continue;
+        }
+
+        Serial.print("Loaded custom preset ");
+        Serial.print(DEFAULT_PRESETS[p].name);
+        Serial.print(": FL=");
+        Serial.print(currentPresets[p][0], 0);
+        Serial.print(" FR=");
+        Serial.print(currentPresets[p][1], 0);
+        Serial.print(" RL=");
+        Serial.print(currentPresets[p][2], 0);
+        Serial.print(" RR=");
+        Serial.println(currentPresets[p][3], 0);
+    }
 }
 
 void AirRideWebServer::handleLevel() {
@@ -363,8 +509,12 @@ void AirRideWebServer::handleNotFound() {
 }
 
 void AirRideWebServer::saveRideHeight() {
+    bool firstWrite = (EEPROM.read(EEPROM_ADDR_MAGIC) != EEPROM_MAGIC);
     EEPROM.write(EEPROM_ADDR_MAGIC, EEPROM_MAGIC);
     EEPROM.write(EEPROM_ADDR_VERSION, EEPROM_VERSION);
+    if (firstWrite) {
+        EEPROM.write(EEPROM_ADDR_PRESET_FLAG, 0); // No custom presets saved yet
+    }
     EEPROM.put(EEPROM_ADDR_LAST_FL, lastHeight[FRONT_LEFT]);
     EEPROM.put(EEPROM_ADDR_LAST_FR, lastHeight[FRONT_RIGHT]);
     EEPROM.put(EEPROM_ADDR_LAST_RL, lastHeight[REAR_LEFT]);

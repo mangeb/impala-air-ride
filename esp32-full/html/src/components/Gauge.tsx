@@ -15,7 +15,7 @@ export const Gauge: React.FC<GaugeProps> = ({
   target,
   label,
   min = 0,
-  max = 150,
+  max = 110,
   unit = 'PSI'
 }) => {
   const percentage = ((value - min) / (max - min)) * 100;
@@ -23,6 +23,16 @@ export const Gauge: React.FC<GaugeProps> = ({
 
   const rotation = (percentage / 100) * 240 - 120;
   const targetRotation = targetPercentage !== null ? (targetPercentage / 100) * 240 - 120 : null;
+
+  // Major marks every 10 PSI from 0 to 110 = 12 marks
+  const majorStep = 10;
+  const majorMarks = Array.from({ length: Math.floor((max - min) / majorStep) + 1 }, (_, i) => min + i * majorStep);
+  // Minor marks every 5 PSI (between majors)
+  const minorStep = 5;
+  const minorMarks = Array.from({ length: Math.floor((max - min) / minorStep) + 1 }, (_, i) => min + i * minorStep)
+    .filter(v => !majorMarks.includes(v));
+
+  const psiToAngle = (psi: number) => ((psi - min) / (max - min)) * 240 - 120;
 
   return (
     <div className="flex flex-col items-center justify-center p-1">
@@ -43,30 +53,69 @@ export const Gauge: React.FC<GaugeProps> = ({
 
         {/* Gauge Face */}
         <div className="absolute inset-2.5 rounded-full bg-[#fdfbf7] gauge-shadow flex items-center justify-center overflow-hidden">
-          {/* Gauge Face Markings */}
-          <div className="absolute inset-0 opacity-40">
-            {[...Array(11)].map((_, i) => (
+          {/* Gauge Face Markings - Major ticks */}
+          <div className="absolute inset-0">
+            {majorMarks.map((psi) => (
               <div
-                key={i}
-                className="absolute top-0 left-1/2 w-[1.5px] h-4 sm:h-5 bg-black origin-bottom"
+                key={`major-${psi}`}
+                className="absolute top-0 left-1/2 w-[1.5px] h-3 sm:h-4 bg-black/50 origin-bottom"
                 style={{
-                  transform: `translateX(-50%) rotate(${(i * 24) - 120}deg)`,
+                  transform: `translateX(-50%) rotate(${psiToAngle(psi)}deg)`,
                   transformOrigin: `50% var(--gauge-mark-origin)`
                 }}
               />
             ))}
-            {[...Array(51)].map((_, i) => (
-              i % 5 !== 0 && (
-                <div
-                  key={i}
-                  className="absolute top-0 left-1/2 w-[0.5px] h-2 sm:h-2.5 bg-black/60 origin-bottom"
-                  style={{
-                    transform: `translateX(-50%) rotate(${(i * 4.8) - 120}deg)`,
-                    transformOrigin: `50% var(--gauge-mark-origin)`
-                  }}
-                />
-              )
+            {/* Minor ticks */}
+            {minorMarks.map((psi) => (
+              <div
+                key={`minor-${psi}`}
+                className="absolute top-0 left-1/2 w-[0.5px] h-2 sm:h-2.5 bg-black/30 origin-bottom"
+                style={{
+                  transform: `translateX(-50%) rotate(${psiToAngle(psi)}deg)`,
+                  transformOrigin: `50% var(--gauge-mark-origin)`
+                }}
+              />
             ))}
+            {/* PSI number labels at major marks */}
+            {majorMarks.map((psi) => {
+              const angle = psiToAngle(psi);
+              const rad = (angle - 90) * (Math.PI / 180);
+              // Position numbers inside the tick marks (closer to center)
+              const radiusMobile = 52; // px from center on mobile
+              const radiusDesktop = 64; // px from center on desktop
+              return (
+                <span
+                  key={`label-${psi}`}
+                  className="absolute text-[6px] sm:text-[8px] font-mono font-bold text-black/35 leading-none hidden sm:block"
+                  style={{
+                    left: `calc(50% + ${Math.cos(rad) * radiusDesktop}px)`,
+                    top: `calc(50% + ${Math.sin(rad) * radiusDesktop}px)`,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                >
+                  {psi}
+                </span>
+              );
+            })}
+            {/* Mobile PSI labels (every 20 PSI + max) */}
+            {majorMarks.filter((psi) => psi % 20 === 0 || psi === max).map((psi) => {
+              const angle = psiToAngle(psi);
+              const rad = (angle - 90) * (Math.PI / 180);
+              const radiusMobile = 44;
+              return (
+                <span
+                  key={`label-m-${psi}`}
+                  className="absolute text-[5.5px] font-mono font-bold text-black/30 leading-none sm:hidden"
+                  style={{
+                    left: `calc(50% + ${Math.cos(rad) * radiusMobile}px)`,
+                    top: `calc(50% + ${Math.sin(rad) * radiusMobile}px)`,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                >
+                  {psi}
+                </span>
+              );
+            })}
           </div>
 
           {/* Actual Pressure Indicator (Inner Needle) */}

@@ -84,12 +84,18 @@ class AirRideWebServer {
     bool hasStoredHeight;
     float lastHeight[NUM_BAGS];
 
+    // Mutable presets (loaded from EEPROM, fall back to DEFAULT_PRESETS)
+    float currentPresets[NUM_PRESETS][4]; // [preset][FL, FR, RL, RR]
+    void loadPresetsFromEEPROM();
+    void savePresetToEEPROM(int presetNum);
+
     void handleRoot();
     void handleStatus();
     void handleBag();
     void handleBagHold();    // Hold button release
     void handleBagTarget();  // Set target for single bag: /bt?n=<bag>&t=<psi>
     void handlePreset();
+    void handleSavePreset(); // Save current pressures to preset: /sp?n=<preset>&fl=&fr=&rl=&rr=
     void handleLevel();
     void handleSaveHeight();
     void handleRestoreHeight();

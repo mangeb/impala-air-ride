@@ -156,9 +156,10 @@
 #define EEPROM_ADDR_LAST_FR     8
 #define EEPROM_ADDR_LAST_RL     12
 #define EEPROM_ADDR_LAST_RR     16
-#define EEPROM_ADDR_PRESET1     20     // Custom preset 1 (16 bytes)
-#define EEPROM_ADDR_PRESET2     36     // Custom preset 2 (16 bytes)
-#define EEPROM_ADDR_PRESET3     52     // Custom preset 3 (16 bytes)
+#define EEPROM_ADDR_PRESET_FLAG 2      // Per-preset saved flags (1 byte, bit 0=P1, bit 1=P2, bit 2=P3)
+#define EEPROM_ADDR_PRESET1     20     // Custom preset 1 (16 bytes: 4x float)
+#define EEPROM_ADDR_PRESET2     36     // Custom preset 2 (16 bytes: 4x float)
+#define EEPROM_ADDR_PRESET3     52     // Custom preset 3 (16 bytes: 4x float)
 #define EEPROM_ADDR_PUMP_HOURS  68     // Pump runtime hours (float)
 
 // ============================================

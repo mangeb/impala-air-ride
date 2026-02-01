@@ -118,6 +118,10 @@ function parseEsp32Status(data: any) {
     maint: data.maint || null,
     maintOverdue: data.maintOverdue || false,
     timeouts: data.timeouts || [false, false, false, false],
+    // Custom preset targets from ESP32 EEPROM
+    presets: data.presets ? data.presets.map((p: number[]) => ({
+      FL: p[0], FR: p[1], RL: p[2], RR: p[3]
+    })) : undefined,
   };
 }
 
@@ -126,7 +130,10 @@ export const airService = {
     try {
       const response = await fetch(`${BASE_URL}/s`, { signal: AbortSignal.timeout(1000) });
       if (!response.ok) throw new Error('Network response was not ok');
-      const data = await response.json();
+      // Sanitize response: ESP32 may produce "nan"/"inf" for corrupted EEPROM floats
+      const text = await response.text();
+      const sanitized = text.replace(/\bnan\b/gi, '0').replace(/\b-?inf\b/gi, '0');
+      const data = JSON.parse(sanitized);
       simulatedState.connected = true;
       return parseEsp32Status(data);
     } catch (error) {
@@ -144,7 +151,7 @@ export const airService = {
       // Start inflate/deflate: GET /b?n=<bag>&d=<dir>&h=1
       const dir = type === 'inflate' ? 1 : -1;
       try {
-        await fetch(`${BASE_URL}/b?n=${bagNum}&d=${dir}&h=1`);
+        await fetch(`${BASE_URL}/b?n=${bagNum}&d=${dir}&h=1`, { signal: AbortSignal.timeout(1000) });
       } catch (e) {
         // Offline simulation
         const c = corner as keyof typeof simulatedState.solenoids;
@@ -155,7 +162,7 @@ export const airService = {
     } else {
       // Release: GET /bh?n=<bag>
       try {
-        await fetch(`${BASE_URL}/bh?n=${bagNum}`);
+        await fetch(`${BASE_URL}/bh?n=${bagNum}`, { signal: AbortSignal.timeout(1000) });
       } catch (e) {
         // Offline simulation
         const c = corner as keyof typeof simulatedState.solenoids;
@@ -170,7 +177,7 @@ export const airService = {
   // Preset: GET /p?n=<preset>
   async applyPreset(presetNum: number) {
     try {
-      await fetch(`${BASE_URL}/p?n=${presetNum}`);
+      await fetch(`${BASE_URL}/p?n=${presetNum}`, { signal: AbortSignal.timeout(1000) });
     } catch (e) {
       // Offline: apply preset values locally
       const presets = [
@@ -190,7 +197,7 @@ export const airService = {
     if (bagNum === undefined) return;
     try {
       // Use a custom endpoint for per-corner target setting
-      await fetch(`${BASE_URL}/bt?n=${bagNum}&t=${pressure}`);
+      await fetch(`${BASE_URL}/bt?n=${bagNum}&t=${pressure}`, { signal: AbortSignal.timeout(1000) });
     } catch (e) {
       const c = corner as keyof typeof simulatedState.targets;
       if (simulatedState.targets[c] !== undefined) {
@@ -202,7 +209,7 @@ export const airService = {
   // Level mode: GET /l?m=<mode>
   async setLevelMode(mode: number) {
     try {
-      await fetch(`${BASE_URL}/l?m=${mode}`);
+      await fetch(`${BASE_URL}/l?m=${mode}`, { signal: AbortSignal.timeout(1000) });
     } catch (e) {
       // Offline: no-op
     }
@@ -211,7 +218,7 @@ export const airService = {
   // Save height: GET /sh
   async saveHeight() {
     try {
-      await fetch(`${BASE_URL}/sh`);
+      await fetch(`${BASE_URL}/sh`, { signal: AbortSignal.timeout(1000) });
     } catch (e) {
       // Offline: no-op
     }
@@ -220,16 +227,37 @@ export const airService = {
   // Restore height: GET /rh
   async restoreHeight() {
     try {
-      await fetch(`${BASE_URL}/rh`);
+      await fetch(`${BASE_URL}/rh`, { signal: AbortSignal.timeout(1000) });
     } catch (e) {
       // Offline: no-op
+    }
+  },
+
+  // Save current pressures to a preset: GET /sp?n=<preset>&fl=<psi>&fr=<psi>&rl=<psi>&rr=<psi>
+  async savePreset(presetNum: number, pressures: { FL: number; FR: number; RL: number; RR: number; tank?: number }) {
+    const fl = Math.round(pressures.FL);
+    const fr = Math.round(pressures.FR);
+    const rl = Math.round(pressures.RL);
+    const rr = Math.round(pressures.RR);
+    try {
+      await fetch(`${BASE_URL}/sp?n=${presetNum}&fl=${fl}&fr=${fr}&rl=${rl}&rr=${rr}`, { signal: AbortSignal.timeout(1000) });
+    } catch (e) {
+      // Offline: update local preset values
+      const presets = [
+        { FL: 0, FR: 0, RL: 0, RR: 0 },
+        { FL: 80, FR: 80, RL: 50, RR: 50 },
+        { FL: 100, FR: 100, RL: 80, RR: 80 },
+      ];
+      if (presets[presetNum]) {
+        presets[presetNum] = { FL: fl, FR: fr, RL: rl, RR: rr };
+      }
     }
   },
 
   // Toggle pump override: GET /po
   async togglePumpOverride() {
     try {
-      await fetch(`${BASE_URL}/po`);
+      await fetch(`${BASE_URL}/po`, { signal: AbortSignal.timeout(1000) });
     } catch (e) {
       // Offline: no-op
     }
