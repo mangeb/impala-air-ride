@@ -9,6 +9,7 @@ import { Activity, Power, ChevronUp, ChevronDown } from 'lucide-react';
 import { Gauge } from './components/Gauge';
 import { HorizontalGauge } from './components/HorizontalGauge';
 import { ControlButton } from './components/ControlButton';
+import { LevelControl } from './components/LevelControl';
 import { ImpalaSSLogo } from './components/ImpalaSSLogo';
 import { airService } from './services/airService';
 import { SystemState, Corner } from './types';
@@ -18,7 +19,8 @@ export default function App() {
     pressures: { FL: 0, FR: 0, RL: 0, RR: 0, tank: 0 },
     targets: { FL: 45, FR: 45, RL: 30, RR: 30 },
     compressorActive: false,
-    connected: false
+    connected: false,
+    level: 0
   });
 
   const [showTankDetails, setShowTankDetails] = useState(false);
@@ -249,7 +251,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* Unit 2: Presets - Below the fold */}
+        {/* Unit 2: Presets & Level Mode - Below the fold */}
         <section className="snap-start min-h-dvh p-3 sm:p-4 flex flex-col gap-3 sm:gap-6">
           <div className="engine-turned rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-8 border-4 border-black/90 shadow-[0_15px_40px_rgba(0,0,0,0.9)] relative overflow-hidden flex-1">
             <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-black/20 pointer-events-none" />
@@ -292,6 +294,12 @@ export default function App() {
 
             </div>
           </div>
+
+          {/* Level Mode Control */}
+          <LevelControl
+            level={state.level ?? 0}
+            onSetLevel={(mode) => airService.setLevelMode(mode)}
+          />
         </section>
       </main>
 

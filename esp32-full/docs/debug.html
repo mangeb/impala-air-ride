@@ -338,6 +338,7 @@ async function bagHold(n) { await api(`/bh?n=${n}`); }
 async function setBagTarget(n) {
   const psi = document.getElementById(`bag-target-input-${n}`).value;
   await api(`/bt?n=${n}&t=${psi}`);
+  if (!polling) pollNow();
 }
 async function allBags(dir) {
   for (let i = 0; i < 4; i++) api(`/b?n=${i}&d=${dir}&h=1`);

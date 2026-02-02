@@ -18,7 +18,8 @@ let simulatedState = {
     RR: { inflate: false, deflate: false },
   },
   compressorActive: false,
-  connected: false
+  connected: false,
+  level: 0
 };
 
 // Simulation loop for offline/demo mode (runs at ~60fps)
@@ -207,7 +208,8 @@ export const airService = {
     try {
       await fetch(`${BASE_URL}/l?m=${mode}`, { signal: AbortSignal.timeout(1000) });
     } catch (e) {
-      // Offline: no-op
+      // Offline: update local level state
+      simulatedState.level = mode;
     }
   },
 
