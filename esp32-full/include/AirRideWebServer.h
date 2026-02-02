@@ -44,11 +44,6 @@ class AirRideWebServer {
     bool isConnected() const { return wifiReady; }
     IPAddress getIP() const { return WiFi.softAPIP(); }
 
-    // Ride height memory
-    void saveRideHeight();
-    void loadRideHeight();
-    bool hasLastRideHeight() const { return hasStoredHeight; }
-
     // Level mode
     void setLevelMode(LevelMode mode) { levelMode = mode; }
     LevelMode getLevelMode() const { return levelMode; }
@@ -61,6 +56,10 @@ class AirRideWebServer {
     // Pump enable/disable override
     bool isPumpEnabled() const { return pumpEnabled; }
     void setPumpEnabled(bool enabled) { pumpEnabled = enabled; }
+
+    // Actions callable from both web and serial
+    void applyPreset(int presetNum);
+    const char* getPresetName(int presetNum) const;
 
   private:
     AirBag* bags;
@@ -80,10 +79,6 @@ class AirRideWebServer {
     // Pump enable/disable
     bool pumpEnabled;
 
-    // Ride height memory
-    bool hasStoredHeight;
-    float lastHeight[NUM_BAGS];
-
     // Mutable presets (loaded from EEPROM, fall back to DEFAULT_PRESETS)
     float currentPresets[NUM_PRESETS][4]; // [preset][FL, FR, RL, RR]
     void loadPresetsFromEEPROM();
@@ -97,12 +92,8 @@ class AirRideWebServer {
     void handlePreset();
     void handleSavePreset(); // Save current pressures to preset: /sp?n=<preset>&fl=&fr=&rl=&rr=
     void handleLevel();
-    void handleSaveHeight();
-    void handleRestoreHeight();
     void handlePumpOverride();
     void handleNotFound();
-
-    uint32_t getHtmlSize();
 };
 
 #endif // AIRRIDE_WEBSERVER_H

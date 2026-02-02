@@ -1,5 +1,3 @@
-import { PressureData, TargetData } from '../types';
-
 // ESP32 serves the page, so use relative URLs (same origin)
 // When running in dev mode (Vite), fall back to env var or default IP
 const BASE_URL = import.meta.env.DEV
@@ -8,7 +6,6 @@ const BASE_URL = import.meta.env.DEV
 
 // Corner name to ESP32 bag index mapping
 const CORNER_TO_BAG: Record<string, number> = { FL: 0, FR: 1, RL: 2, RR: 3 };
-const BAG_TO_CORNER = ['FL', 'FR', 'RL', 'RR'] as const;
 
 // Local state for offline simulation (when ESP32 not reachable)
 let simulatedState = {
@@ -111,7 +108,6 @@ function parseEsp32Status(data: any) {
     connected: true,
     level: data.level || 0,
     lockout: data.lockout || false,
-    hasHeight: data.hasHeight || false,
     pumpEnabled: data.pumpEnabled !== false,
     pump: data.pump || '',
     runtime: data.runtime || '',
@@ -138,7 +134,7 @@ export const airService = {
       return parseEsp32Status(data);
     } catch (error) {
       simulatedState.connected = false;
-      return { ...simulatedState };
+      return { ...simulatedState, presets: undefined };
     }
   },
 
@@ -210,24 +206,6 @@ export const airService = {
   async setLevelMode(mode: number) {
     try {
       await fetch(`${BASE_URL}/l?m=${mode}`, { signal: AbortSignal.timeout(1000) });
-    } catch (e) {
-      // Offline: no-op
-    }
-  },
-
-  // Save height: GET /sh
-  async saveHeight() {
-    try {
-      await fetch(`${BASE_URL}/sh`, { signal: AbortSignal.timeout(1000) });
-    } catch (e) {
-      // Offline: no-op
-    }
-  },
-
-  // Restore height: GET /rh
-  async restoreHeight() {
-    try {
-      await fetch(`${BASE_URL}/rh`, { signal: AbortSignal.timeout(1000) });
     } catch (e) {
       // Offline: no-op
     }

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Impala Air Ride - Debug Console</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; background: #1a1a1a; color: #e0e0e0; padding: 10px; font-size: 14px; }
+  h1 { font-size: 16px; color: #ffd700; margin-bottom: 8px; text-align: center; }
+  h2 { font-size: 13px; color: #aaa; margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 2px; }
+
+  .config { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+  .config input { flex: 1; background: #222; border: 1px solid #444; color: #fff; padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: 13px; }
+  .config button { background: #333; border: 1px solid #555; color: #fff; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-family: inherit; }
+  .config button:hover { background: #444; }
+
+  .status-bar { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #555; display: inline-block; }
+  .dot.ok { background: #4caf50; }
+  .dot.err { background: #f44336; }
+  #poll-toggle { font-size: 12px; cursor: pointer; background: #333; border: 1px solid #555; color: #fff; padding: 2px 8px; border-radius: 4px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+  .bag-card { background: #222; border: 1px solid #333; border-radius: 6px; padding: 8px; }
+  .bag-card .name { font-weight: bold; color: #ffd700; font-size: 13px; }
+  .bag-card .psi { font-size: 20px; font-weight: bold; color: #fff; margin: 2px 0; }
+  .bag-card .target { font-size: 11px; color: #888; }
+  .bag-card .timeout { font-size: 11px; color: #f44336; }
+  .bag-btns { display: flex; gap: 4px; margin-top: 4px; }
+  .bag-btns button { flex: 1; padding: 6px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; font-weight: bold; }
+  .bag-btns .inflate { background: #2e7d32; color: #fff; }
+  .bag-btns .hold { background: #555; color: #fff; }
+  .bag-btns .deflate { background: #c62828; color: #fff; }
+  .bag-btns button:active { opacity: 0.7; }
+
+  .target-input { display: flex; gap: 4px; margin-top: 4px; align-items: center; }
+  .target-input input { width: 50px; background: #111; border: 1px solid #444; color: #fff; padding: 3px 4px; border-radius: 3px; font-family: inherit; font-size: 12px; text-align: center; }
+  .target-input button { padding: 3px 8px; font-size: 11px; background: #1565c0; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-family: inherit; }
+
+  .tank-bar { background: #222; border: 1px solid #333; border-radius: 6px; padding: 8px; margin-bottom: 6px; }
+  .tank-bar .label { font-size: 12px; color: #888; }
+  .tank-bar .value { font-size: 24px; font-weight: bold; color: #fff; }
+  .tank-bar .bar { height: 8px; background: #333; border-radius: 4px; margin-top: 4px; overflow: hidden; }
+  .tank-bar .bar-fill { height: 100%; background: linear-gradient(90deg, #c62828, #ffd700, #4caf50); border-radius: 4px; transition: width 0.3s; }
+  .lockout-warn { color: #f44336; font-size: 11px; font-weight: bold; }
+
+  .section { margin-bottom: 6px; }
+  .btn-row { display: flex; gap: 4px; flex-wrap: wrap; }
+  .btn-row button { padding: 6px 12px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; color: #fff; }
+  .btn-row button:active { opacity: 0.7; }
+  .preset { background: #1565c0; }
+  .preset.active { background: #0d47a1; box-shadow: 0 0 0 2px #64b5f6; }
+  .level { background: #6a1b9a; }
+  .level.active { background: #4a148c; box-shadow: 0 0 0 2px #ce93d8; }
+  .memory { background: #00695c; }
+  .pump { background: #e65100; }
+  .pump.off { background: #555; }
+  .all-ctrl { background: #333; border: 1px solid #555; }
+
+  .pump-status { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 12px; }
+  .pump-led { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #555; }
+  .pump-led.on { background: #ffa726; border-color: #ffa726; box-shadow: 0 0 6px #ffa726; }
+  .pump-led.off { background: #333; }
+
+  #log { background: #111; border: 1px solid #333; border-radius: 4px; padding: 6px; font-size: 11px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; color: #888; margin-top: 6px; }
+  #log .req { color: #64b5f6; }
+  #log .res { color: #81c784; }
+  #log .err { color: #ef5350; }
+  #raw { background: #0a0a0a; border: 1px solid #333; border-radius: 4px; padding: 6px; font-size: 11px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; color: #666; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>IMPALA AIR RIDE - DEBUG CONSOLE</h1>
+
+<div class="config">
+  <label>ESP32:</label>
+  <input type="text" id="base-url" value="http://192.168.4.1" placeholder="http://192.168.4.1">
+  <button onclick="pollNow()">Refresh</button>
+</div>
+
+<div class="status-bar">
+  <span class="dot" id="conn-dot"></span>
+  <span id="conn-text" style="font-size:12px;color:#888">Disconnected</span>
+  <button id="poll-toggle" onclick="togglePoll()">Auto-poll: OFF</button>
+  <span style="font-size:11px;color:#555;margin-left:auto" id="last-update"></span>
+</div>
+
+<!-- Tank -->
+<div class="tank-bar">
+  <div style="display:flex;justify-content:space-between;align-items:baseline">
+    <span class="label">TANK</span>
+    <span class="value" id="tank-psi">--</span>
+    <span class="label">PSI</span>
+    <span class="lockout-warn" id="lockout-warn" style="display:none">LOCKOUT</span>
+  </div>
+  <div class="bar"><div class="bar-fill" id="tank-bar-fill" style="width:0%"></div></div>
+</div>
+
+<!-- Bags -->
+<div class="grid" id="bags-grid">
+  <!-- Populated by JS -->
+</div>
+
+<!-- All Bags -->
+<div class="section">
+  <h2>All Bags</h2>
+  <div class="btn-row">
+    <button class="all-ctrl" onmousedown="allBags(1)" onmouseup="allBagsHold()" ontouchstart="ev(event);allBags(1)" ontouchend="ev(event);allBagsHold()">Rise All</button>
+    <button class="all-ctrl" onmousedown="allBags(-1)" onmouseup="allBagsHold()" ontouchstart="ev(event);allBags(-1)" ontouchend="ev(event);allBagsHold()">Drop All</button>
+    <button class="all-ctrl" onclick="allBagsHold()">Hold All</button>
+  </div>
+</div>
+
+<!-- Presets -->
+<div class="section">
+  <h2>Presets</h2>
+  <div class="btn-row">
+    <button class="preset" onclick="applyPreset(0)">Lay (0)</button>
+    <button class="preset" onclick="applyPreset(1)">Cruise (1)</button>
+    <button class="preset" onclick="applyPreset(2)">Max (2)</button>
+  </div>
+  <div style="margin-top:4px">
+    <div class="btn-row">
+      <button class="preset" style="background:#0d47a1;font-size:11px" onclick="savePreset(0)">Save Lay</button>
+      <button class="preset" style="background:#0d47a1;font-size:11px" onclick="savePreset(1)">Save Cruise</button>
+      <button class="preset" style="background:#0d47a1;font-size:11px" onclick="savePreset(2)">Save Max</button>
+    </div>
+  </div>
+  <div id="preset-values" style="font-size:11px;color:#666;margin-top:2px"></div>
+</div>
+
+<!-- Level Mode -->
+<div class="section">
+  <h2>Level Mode</h2>
+  <div class="btn-row">
+    <button class="level" id="level-0" onclick="setLevel(0)">Off</button>
+    <button class="level" id="level-1" onclick="setLevel(1)">Front</button>
+    <button class="level" id="level-2" onclick="setLevel(2)">Rear</button>
+    <button class="level" id="level-3" onclick="setLevel(3)">All</button>
+  </div>
+</div>
+
+<!-- Pump Control -->
+<div class="section">
+  <h2>Pumps</h2>
+  <div class="btn-row">
+    <button class="pump" id="pump-toggle-btn" onclick="togglePump()">Toggle Enable</button>
+  </div>
+  <div class="pump-status">
+    <span>Enabled: <strong id="pump-enabled">--</strong></span>
+    <span>Mode: <strong id="pump-mode">--</strong></span>
+    <div class="pump-led off" id="p1-led"></div><span>P1</span>
+    <div class="pump-led off" id="p2-led"></div><span>P2</span>
+  </div>
+  <div style="font-size:11px;color:#666;margin-top:2px" id="pump-runtime"></div>
+  <div style="font-size:11px;color:#f44336;margin-top:2px" id="pump-maint"></div>
+</div>
+
+<!-- Raw Endpoints -->
+<div class="section">
+  <h2>Raw Endpoint Test</h2>
+  <div class="config">
+    <input type="text" id="raw-path" value="/s" placeholder="/s, /b?n=0&d=1, etc.">
+    <button onclick="rawFetch()">GET</button>
+  </div>
+</div>
+
+<!-- Log -->
+<h2>Request Log</h2>
+<div id="log"></div>
+<h2>Last Raw Response</h2>
+<div id="raw"></div>
+
+<script>
+const BAGS = ['FL', 'FR', 'RL', 'RR'];
+const BAG_LABELS = { FL: 'Front Left', FR: 'Front Right', RL: 'Rear Left', RR: 'Rear Right' };
+let polling = false;
+let pollTimer = null;
+let state = { bags: [0,0,0,0], targets: [0,0,0,0], tank: 0, timeouts: [false,false,false,false], level: 0, lockout: false, pumpEnabled: true, pump: '', runtime: '', presets: null, maint: null, maintOverdue: false };
+
+function ev(e) { e.preventDefault(); }
+function getBase() { return document.getElementById('base-url').value.replace(/\/+$/, ''); }
+
+function log(type, msg) {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = type;
+  const ts = new Date().toLocaleTimeString();
+  line.textContent = `[${ts}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+  // Keep last 100 lines
+  while (el.children.length > 100) el.removeChild(el.firstChild);
+}
+
+async function api(path) {
+  const url = getBase() + path;
+  log('req', `GET ${path}`);
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(2000) });
+    const text = await r.text();
+    log('res', `${r.status} (${text.length}b)`);
+    document.getElementById('raw').textContent = text;
+    try {
+      const sanitized = text.replace(/\bnan\b/gi, '0').replace(/\b-?inf\b/gi, '0');
+      return JSON.parse(sanitized);
+    } catch { return text; }
+  } catch (e) {
+    log('err', `FAIL: ${e.message}`);
+    document.getElementById('raw').textContent = `Error: ${e.message}`;
+    return null;
+  }
+}
+
+function updateUI() {
+  // Connection status
+  const dot = document.getElementById('conn-dot');
+  const txt = document.getElementById('conn-text');
+  // Tank
+  document.getElementById('tank-psi').textContent = state.tank.toFixed(1);
+  document.getElementById('tank-bar-fill').style.width = Math.min(100, (state.tank / 150) * 100) + '%';
+  const lockout = document.getElementById('lockout-warn');
+  lockout.style.display = state.lockout ? '' : 'none';
+
+  // Bags
+  const grid = document.getElementById('bags-grid');
+  if (!grid.children.length) {
+    for (let i = 0; i < 4; i++) {
+      const card = document.createElement('div');
+      card.className = 'bag-card';
+      card.id = `bag-${i}`;
+      card.innerHTML = `
+        <div class="name">${BAG_LABELS[BAGS[i]]}</div>
+        <div class="psi" id="bag-psi-${i}">--</div>
+        <div class="target" id="bag-target-${i}">Target: --</div>
+        <div class="timeout" id="bag-timeout-${i}" style="display:none">SOLENOID TIMEOUT</div>
+        <div class="bag-btns">
+          <button class="inflate" onmousedown="bagAction(${i},1)" onmouseup="bagHold(${i})" ontouchstart="ev(event);bagAction(${i},1)" ontouchend="ev(event);bagHold(${i})">+</button>
+          <button class="hold" onclick="bagHold(${i})">H</button>
+          <button class="deflate" onmousedown="bagAction(${i},-1)" onmouseup="bagHold(${i})" ontouchstart="ev(event);bagAction(${i},-1)" ontouchend="ev(event);bagHold(${i})">-</button>
+        </div>
+        <div class="target-input">
+          <input type="number" id="bag-target-input-${i}" min="0" max="120" value="0" step="5">
+          <button onclick="setBagTarget(${i})">Set</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+  }
+  for (let i = 0; i < 4; i++) {
+    document.getElementById(`bag-psi-${i}`).textContent = state.bags[i].toFixed(1);
+    document.getElementById(`bag-target-${i}`).textContent = `Target: ${state.targets[i].toFixed(0)} PSI`;
+    const to = document.getElementById(`bag-timeout-${i}`);
+    to.style.display = state.timeouts[i] ? '' : 'none';
+  }
+
+  // Level
+  for (let i = 0; i <= 3; i++) {
+    const btn = document.getElementById(`level-${i}`);
+    btn.classList.toggle('active', state.level === i);
+  }
+
+  // Pumps
+  document.getElementById('pump-enabled').textContent = state.pumpEnabled ? 'YES' : 'NO';
+  document.getElementById('pump-enabled').style.color = state.pumpEnabled ? '#4caf50' : '#f44336';
+  document.getElementById('pump-mode').textContent = state.pump || '--';
+  const p1 = state.pump && state.pump.includes('P1:ON');
+  const p2 = state.pump && state.pump.includes('P2:ON');
+  document.getElementById('p1-led').className = `pump-led ${p1 ? 'on' : 'off'}`;
+  document.getElementById('p2-led').className = `pump-led ${p2 ? 'on' : 'off'}`;
+  document.getElementById('pump-runtime').textContent = state.runtime || '';
+  const toggleBtn = document.getElementById('pump-toggle-btn');
+  toggleBtn.className = `pump ${state.pumpEnabled ? '' : 'off'}`;
+  toggleBtn.textContent = state.pumpEnabled ? 'Disable Pumps' : 'Enable Pumps';
+
+  // Maintenance
+  const maintEl = document.getElementById('pump-maint');
+  if (state.maint) {
+    maintEl.textContent = state.maint;
+    maintEl.style.color = state.maintOverdue ? '#f44336' : '#ffa726';
+  } else {
+    maintEl.textContent = '';
+  }
+
+  // Presets
+  if (state.presets) {
+    const names = ['Lay', 'Cruise', 'Max'];
+    const lines = state.presets.map((p, i) =>
+      `${names[i]}: FL=${p[0]} FR=${p[1]} RL=${p[2]} RR=${p[3]}`
+    );
+    document.getElementById('preset-values').textContent = lines.join(' | ');
+  }
+
+  document.getElementById('last-update').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+}
+
+async function pollNow() {
+  const data = await api('/s');
+  if (data && typeof data === 'object') {
+    state.bags = data.bags || [0,0,0,0];
+    state.targets = data.targets || [0,0,0,0];
+    state.tank = data.tank || 0;
+    state.timeouts = data.timeouts || [false,false,false,false];
+    state.level = data.level || 0;
+    state.lockout = data.lockout || false;
+    state.pumpEnabled = data.pumpEnabled !== false;
+    state.pump = data.pump || '';
+    state.runtime = data.runtime || '';
+    state.presets = data.presets || null;
+    state.maint = data.maint || null;
+    state.maintOverdue = data.maintOverdue || false;
+    document.getElementById('conn-dot').className = 'dot ok';
+    document.getElementById('conn-text').textContent = 'Connected';
+  } else {
+    document.getElementById('conn-dot').className = 'dot err';
+    document.getElementById('conn-text').textContent = 'Disconnected';
+  }
+  updateUI();
+}
+
+function togglePoll() {
+  polling = !polling;
+  document.getElementById('poll-toggle').textContent = `Auto-poll: ${polling ? 'ON' : 'OFF'}`;
+  if (polling) {
+    pollNow();
+    pollTimer = setInterval(pollNow, 500);
+  } else {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+// Bag controls
+async function bagAction(n, dir) { await api(`/b?n=${n}&d=${dir}&h=1`); }
+async function bagHold(n) { await api(`/bh?n=${n}`); }
+async function setBagTarget(n) {
+  const psi = document.getElementById(`bag-target-input-${n}`).value;
+  await api(`/bt?n=${n}&t=${psi}`);
+}
+async function allBags(dir) {
+  for (let i = 0; i < 4; i++) api(`/b?n=${i}&d=${dir}&h=1`);
+}
+async function allBagsHold() {
+  for (let i = 0; i < 4; i++) api(`/bh?n=${i}`);
+}
+
+// Presets
+async function applyPreset(n) { await api(`/p?n=${n}`); if (!polling) pollNow(); }
+async function savePreset(n) {
+  // Save current bag pressures as the preset
+  const fl = Math.round(state.bags[0]);
+  const fr = Math.round(state.bags[1]);
+  const rl = Math.round(state.bags[2]);
+  const rr = Math.round(state.bags[3]);
+  await api(`/sp?n=${n}&fl=${fl}&fr=${fr}&rl=${rl}&rr=${rr}`);
+  if (!polling) pollNow();
+}
+
+// Level
+async function setLevel(m) { await api(`/l?m=${m}`); if (!polling) pollNow(); }
+
+// Pumps
+async function togglePump() { await api('/po'); if (!polling) pollNow(); }
+
+// Raw endpoint
+async function rawFetch() {
+  const path = document.getElementById('raw-path').value;
+  await api(path);
+  if (!polling) pollNow();
+}
+
+// Build initial UI
+updateUI();
+</script>
+</body>
+</html>

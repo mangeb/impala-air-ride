@@ -35,13 +35,16 @@
 
 /* Responsive gauge sizing via CSS custom properties */
 :root {
-  /* Mobile: compact gauges to fit gauges + tank in one screen with browser chrome */
-  --gauge-size: 6.5rem;
-  --gauge-mark-origin: 49px;
-  --gauge-needle-major-h: 44px;
-  --gauge-needle-minor-h: 29px;
-  --gauge-readout-bottom: 0.4rem;
-  --gauge-readout-size: 0.85rem;
+  /* Mobile: dynamic gauge size based on viewport to fill available space.
+     Width limit: 2 gauges per row → ~40vw each.
+     Height limit: 2 rows + tank panel + controls must fit in viewport. */
+  --gauge-size: min(40vw, 24dvh);
+  --gauge-mark-origin: calc(var(--gauge-size) * 0.475);
+  --gauge-needle-major-h: calc(var(--gauge-size) * 0.44);
+  --gauge-needle-minor-h: calc(var(--gauge-size) * 0.285);
+  --gauge-readout-bottom: calc(var(--gauge-size) * 0.07);
+  --gauge-readout-size: calc(var(--gauge-size) * 0.13);
+  --gauge-label-radius: calc(var(--gauge-size) * 0.27);
 }
 @media (min-width: 640px) {
   :root {
@@ -52,6 +55,7 @@
     --gauge-needle-minor-h: 56px;
     --gauge-readout-bottom: 1.5rem;
     --gauge-readout-size: 1.5rem;
+    --gauge-label-radius: calc(var(--gauge-size) * 0.33);
   }
 }
 

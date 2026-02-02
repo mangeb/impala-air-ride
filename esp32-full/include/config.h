@@ -7,7 +7,7 @@
 // Enhanced version with:
 // - Hold buttons for continuous inflate/deflate
 // - Target PSI display
-// - Ride height memory (EEPROM)
+// - Saveable presets (EEPROM)
 // - Level mode (auto-match left/right)
 // - Watchdog timer
 // - Solenoid timeout protection
@@ -152,10 +152,6 @@
 // EEPROM addresses
 #define EEPROM_ADDR_MAGIC       0
 #define EEPROM_ADDR_VERSION     1
-#define EEPROM_ADDR_LAST_FL     4      // Last ride height (float = 4 bytes each)
-#define EEPROM_ADDR_LAST_FR     8
-#define EEPROM_ADDR_LAST_RL     12
-#define EEPROM_ADDR_LAST_RR     16
 #define EEPROM_ADDR_PRESET_FLAG 2      // Per-preset saved flags (1 byte, bit 0=P1, bit 1=P2, bit 2=P3)
 #define EEPROM_ADDR_PRESET1     20     // Custom preset 1 (16 bytes: 4x float)
 #define EEPROM_ADDR_PRESET2     36     // Custom preset 2 (16 bytes: 4x float)
@@ -186,14 +182,6 @@
 #define REAR_LEFT   2
 #define REAR_RIGHT  3
 #define NUM_BAGS    4
-
-// ============================================
-// UI HOLD BUTTON TIMING
-// ============================================
-
-#define HOLD_DEBOUNCE_MS        50     // Button debounce time
-#define HOLD_REPEAT_DELAY_MS    500    // Initial delay before repeat
-#define HOLD_REPEAT_RATE_MS     100    // Repeat rate when held
 
 // ============================================
 // DEMO / BENCH TEST MODE

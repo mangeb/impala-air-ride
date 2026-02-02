@@ -10,11 +10,7 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
       levelMode(LEVEL_OFF),
       lastLevelAdjust(0),
       tankLockout(false),
-      pumpEnabled(true),
-      hasStoredHeight(false) {
-    for (int i = 0; i < NUM_BAGS; i++) {
-        lastHeight[i] = 0.0;
-    }
+      pumpEnabled(true) {
     // Initialize presets from defaults
     for (int p = 0; p < NUM_PRESETS; p++) {
         currentPresets[p][0] = DEFAULT_PRESETS[p].frontLeft;
@@ -35,8 +31,7 @@ void AirRideWebServer::begin() {
 
     wifiReady = true;
 
-    // Load saved ride height and custom presets from EEPROM
-    loadRideHeight();
+    // Load custom presets from EEPROM
     loadPresetsFromEEPROM();
 
     // Setup routes
@@ -48,8 +43,6 @@ void AirRideWebServer::begin() {
     server.on("/p", HTTP_GET, [this]() { handlePreset(); });
     server.on("/sp", HTTP_GET, [this]() { handleSavePreset(); });
     server.on("/l", HTTP_GET, [this]() { handleLevel(); });
-    server.on("/sh", HTTP_GET, [this]() { handleSaveHeight(); });
-    server.on("/rh", HTTP_GET, [this]() { handleRestoreHeight(); });
     server.on("/po", HTTP_GET, [this]() { handlePumpOverride(); });
     server.onNotFound([this]() { handleNotFound(); });
 
@@ -115,8 +108,6 @@ void AirRideWebServer::handleStatus() {
     json += String((int)levelMode);
     json += ",\"lockout\":";
     json += tankLockout ? "true" : "false";
-    json += ",\"hasHeight\":";
-    json += hasStoredHeight ? "true" : "false";
     json += ",\"pumpEnabled\":";
     json += pumpEnabled ? "true" : "false";
 
@@ -276,25 +267,7 @@ void AirRideWebServer::handlePreset() {
             Serial.print(" RR=");
             Serial.println(currentPresets[presetNum][3], 0);
 
-            bags[FRONT_LEFT].setTargetPressure(currentPresets[presetNum][0]);
-            bags[FRONT_RIGHT].setTargetPressure(currentPresets[presetNum][1]);
-            bags[REAR_LEFT].setTargetPressure(currentPresets[presetNum][2]);
-            bags[REAR_RIGHT].setTargetPressure(currentPresets[presetNum][3]);
-
-            // Start moving to targets
-            for (int i = 0; i < NUM_BAGS; i++) {
-                float current = bags[i].getPressure();
-                float target = bags[i].getTargetPressure();
-                if (current < target - 2.0) {
-                    if (!tankLockout) {
-                        bags[i].inflate();
-                    }
-                } else if (current > target + 2.0) {
-                    bags[i].deflate();
-                } else {
-                    bags[i].hold();
-                }
-            }
+            applyPreset(presetNum);
         }
     }
     handleStatus();
@@ -339,6 +312,13 @@ void AirRideWebServer::handleSavePreset() {
 
 void AirRideWebServer::savePresetToEEPROM(int presetNum) {
     if (presetNum < 0 || presetNum >= NUM_PRESETS) return;
+
+    // Initialize EEPROM header on first write
+    if (EEPROM.read(EEPROM_ADDR_MAGIC) != EEPROM_MAGIC) {
+        EEPROM.write(EEPROM_ADDR_MAGIC, EEPROM_MAGIC);
+        EEPROM.write(EEPROM_ADDR_VERSION, EEPROM_VERSION);
+        EEPROM.write(EEPROM_ADDR_PRESET_FLAG, 0);
+    }
 
     // Each preset is 16 bytes (4 floats)
     int baseAddr;
@@ -436,60 +416,6 @@ void AirRideWebServer::handleLevel() {
     handleStatus();
 }
 
-void AirRideWebServer::handleSaveHeight() {
-    Serial.print("[WEB] /sh SAVE HEIGHT FL=");
-    Serial.print(bags[FRONT_LEFT].getPressure(), 1);
-    Serial.print(" FR=");
-    Serial.print(bags[FRONT_RIGHT].getPressure(), 1);
-    Serial.print(" RL=");
-    Serial.print(bags[REAR_LEFT].getPressure(), 1);
-    Serial.print(" RR=");
-    Serial.println(bags[REAR_RIGHT].getPressure(), 1);
-    // Save current pressures to EEPROM
-    for (int i = 0; i < NUM_BAGS; i++) {
-        lastHeight[i] = bags[i].getPressure();
-    }
-    saveRideHeight();
-    handleStatus();
-}
-
-void AirRideWebServer::handleRestoreHeight() {
-    Serial.print("[WEB] /rh RESTORE HEIGHT");
-    if (hasStoredHeight) {
-        Serial.print(" FL=");
-        Serial.print(lastHeight[FRONT_LEFT], 1);
-        Serial.print(" FR=");
-        Serial.print(lastHeight[FRONT_RIGHT], 1);
-        Serial.print(" RL=");
-        Serial.print(lastHeight[REAR_LEFT], 1);
-        Serial.print(" RR=");
-        Serial.println(lastHeight[REAR_RIGHT], 1);
-    } else {
-        Serial.println(" (no saved data)");
-    }
-    if (hasStoredHeight) {
-        // Set targets to stored heights
-        bags[FRONT_LEFT].setTargetPressure(lastHeight[FRONT_LEFT]);
-        bags[FRONT_RIGHT].setTargetPressure(lastHeight[FRONT_RIGHT]);
-        bags[REAR_LEFT].setTargetPressure(lastHeight[REAR_LEFT]);
-        bags[REAR_RIGHT].setTargetPressure(lastHeight[REAR_RIGHT]);
-
-        // Start moving to targets
-        for (int i = 0; i < NUM_BAGS; i++) {
-            float current = bags[i].getPressure();
-            float target = bags[i].getTargetPressure();
-            if (current < target - 2.0) {
-                if (!tankLockout) {
-                    bags[i].inflate();
-                }
-            } else if (current > target + 2.0) {
-                bags[i].deflate();
-            }
-        }
-    }
-    handleStatus();
-}
-
 void AirRideWebServer::handlePumpOverride() {
     pumpEnabled = !pumpEnabled;
     Serial.print("[WEB] /po PUMP OVERRIDE ");
@@ -502,47 +428,41 @@ void AirRideWebServer::handlePumpOverride() {
     handleStatus();
 }
 
+void AirRideWebServer::applyPreset(int presetNum) {
+    if (presetNum < 0 || presetNum >= NUM_PRESETS) return;
+
+    bags[FRONT_LEFT].setTargetPressure(currentPresets[presetNum][0]);
+    bags[FRONT_RIGHT].setTargetPressure(currentPresets[presetNum][1]);
+    bags[REAR_LEFT].setTargetPressure(currentPresets[presetNum][2]);
+    bags[REAR_RIGHT].setTargetPressure(currentPresets[presetNum][3]);
+
+    // Start moving to targets
+    for (int i = 0; i < NUM_BAGS; i++) {
+        float current = bags[i].getPressure();
+        float target = bags[i].getTargetPressure();
+        if (current < target - 2.0) {
+            if (!tankLockout) {
+                bags[i].inflate();
+            }
+        } else if (current > target + 2.0) {
+            bags[i].deflate();
+        } else {
+            bags[i].hold();
+        }
+    }
+}
+
+const char* AirRideWebServer::getPresetName(int presetNum) const {
+    if (presetNum >= 0 && presetNum < NUM_PRESETS) {
+        return DEFAULT_PRESETS[presetNum].name;
+    }
+    return "Unknown";
+}
+
 void AirRideWebServer::handleNotFound() {
     Serial.print("[WEB] 404 Not Found: ");
     Serial.println(server.uri());
     server.send(404, "text/plain", "Not Found");
-}
-
-void AirRideWebServer::saveRideHeight() {
-    bool firstWrite = (EEPROM.read(EEPROM_ADDR_MAGIC) != EEPROM_MAGIC);
-    EEPROM.write(EEPROM_ADDR_MAGIC, EEPROM_MAGIC);
-    EEPROM.write(EEPROM_ADDR_VERSION, EEPROM_VERSION);
-    if (firstWrite) {
-        EEPROM.write(EEPROM_ADDR_PRESET_FLAG, 0); // No custom presets saved yet
-    }
-    EEPROM.put(EEPROM_ADDR_LAST_FL, lastHeight[FRONT_LEFT]);
-    EEPROM.put(EEPROM_ADDR_LAST_FR, lastHeight[FRONT_RIGHT]);
-    EEPROM.put(EEPROM_ADDR_LAST_RL, lastHeight[REAR_LEFT]);
-    EEPROM.put(EEPROM_ADDR_LAST_RR, lastHeight[REAR_RIGHT]);
-    EEPROM.commit();
-    hasStoredHeight = true;
-    Serial.println("Ride height saved to EEPROM");
-}
-
-void AirRideWebServer::loadRideHeight() {
-    if (EEPROM.read(EEPROM_ADDR_MAGIC) == EEPROM_MAGIC) {
-        EEPROM.get(EEPROM_ADDR_LAST_FL, lastHeight[FRONT_LEFT]);
-        EEPROM.get(EEPROM_ADDR_LAST_FR, lastHeight[FRONT_RIGHT]);
-        EEPROM.get(EEPROM_ADDR_LAST_RL, lastHeight[REAR_LEFT]);
-        EEPROM.get(EEPROM_ADDR_LAST_RR, lastHeight[REAR_RIGHT]);
-        hasStoredHeight = true;
-        Serial.print("Loaded ride height: FL=");
-        Serial.print(lastHeight[FRONT_LEFT]);
-        Serial.print(" FR=");
-        Serial.print(lastHeight[FRONT_RIGHT]);
-        Serial.print(" RL=");
-        Serial.print(lastHeight[REAR_LEFT]);
-        Serial.print(" RR=");
-        Serial.println(lastHeight[REAR_RIGHT]);
-    } else {
-        hasStoredHeight = false;
-        Serial.println("No saved ride height found");
-    }
 }
 
 void AirRideWebServer::updateTankLockout(float tankPressure) {
@@ -616,6 +536,3 @@ void AirRideWebServer::updateLevelMode() {
     }
 }
 
-uint32_t AirRideWebServer::getHtmlSize() {
-    return HTML_CONTENT_SIZE;
-}
