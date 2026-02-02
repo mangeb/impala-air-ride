@@ -183,6 +183,13 @@ let state = { bags: [0,0,0,0], targets: [0,0,0,0], tank: 0, timeouts: [false,fal
 function ev(e) { e.preventDefault(); }
 function getBase() { return document.getElementById('base-url').value.replace(/\/+$/, ''); }
 
+// Auto-detect: when served from ESP32, use relative URLs (same origin)
+(function() {
+  if (location.protocol !== 'file:') {
+    document.getElementById('base-url').value = location.origin;
+  }
+})();
+
 function log(type, msg) {
   const el = document.getElementById('log');
   const line = document.createElement('div');

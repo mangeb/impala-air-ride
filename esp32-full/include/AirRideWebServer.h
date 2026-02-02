@@ -85,6 +85,7 @@ class AirRideWebServer {
     void savePresetToEEPROM(int presetNum);
 
     void handleRoot();
+    void handleDebug();
     void handleStatus();
     void handleBag();
     void handleBagHold();    // Hold button release

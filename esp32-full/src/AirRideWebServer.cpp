@@ -1,5 +1,6 @@
 #include "AirRideWebServer.h"
-#include "html_content.h"  // Auto-generated gzipped React UI
+#include "html_content.h"   // Auto-generated gzipped React UI
+#include "debug_content.h"  // Auto-generated gzipped debug console
 
 AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
     : bags(b),
@@ -44,6 +45,7 @@ void AirRideWebServer::begin() {
     server.on("/sp", HTTP_GET, [this]() { handleSavePreset(); });
     server.on("/l", HTTP_GET, [this]() { handleLevel(); });
     server.on("/po", HTTP_GET, [this]() { handlePumpOverride(); });
+    server.on("/debug", HTTP_GET, [this]() { handleDebug(); });
     server.onNotFound([this]() { handleNotFound(); });
 
     server.begin();
@@ -74,6 +76,13 @@ void AirRideWebServer::handleRoot() {
     server.sendHeader("Content-Encoding", "gzip");
     server.sendHeader("Cache-Control", "no-cache");
     server.send_P(200, "text/html", (const char*)HTML_CONTENT, HTML_CONTENT_SIZE);
+}
+
+void AirRideWebServer::handleDebug() {
+    Serial.println("[WEB] GET /debug - Serving debug console (gzip, " + String(DEBUG_HTML_SIZE) + " bytes)");
+    server.sendHeader("Content-Encoding", "gzip");
+    server.sendHeader("Cache-Control", "no-cache");
+    server.send_P(200, "text/html", (const char*)DEBUG_HTML, DEBUG_HTML_SIZE);
 }
 
 void AirRideWebServer::handleStatus() {
