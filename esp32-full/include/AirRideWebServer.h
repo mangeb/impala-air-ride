@@ -104,6 +104,7 @@ class AirRideWebServer {
     void handleLevel();
     void handlePumpOverride();
     void handleTimeSync();
+    void handleDemoToggle();
     void handleLeakStatus();
     void loadLeakSnapshot();
     void saveLeakSnapshot();

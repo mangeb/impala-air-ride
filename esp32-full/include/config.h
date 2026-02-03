@@ -207,10 +207,22 @@
 // ============================================
 // DEMO / BENCH TEST MODE
 // ============================================
-// When no sensors are connected, use simulated default values
-// Set to false for real hardware with sensors wired up
-#define DEMO_MODE               true
+// Runtime-toggled via /demo endpoint (no recompile needed)
+// Default initial values when simulation is active
 #define DEMO_BAG_PSI            66.0   // Default bag pressure in demo mode
 #define DEMO_TANK_PSI           150.0  // Default tank pressure in demo mode
+
+// Simulation physics rates (tuned for PRESSURE_READ_INTERVAL = 100ms)
+#define SIM_TANK_DECAY_RATE     0.06   // PSI lost per tick from natural leakage
+#define SIM_PUMP_FILL_RATE      0.38   // Base pump fill rate per tick
+#define SIM_BAG_INFLATE_RATE    0.30   // Bag fill rate multiplier * sqrt(deltaP)
+#define SIM_BAG_DEFLATE_RATE    0.25   // Bag dump rate multiplier * sqrt(pressure)
+#define SIM_BAG_TANK_DRAIN      0.12   // Tank drain per inflating bag * sqrt(deltaP)
+#define SIM_JITTER_RANGE        50     // Random jitter ±0.005 PSI (value/10000)
+
+// Runtime demo mode globals (defined in main.ino)
+extern bool demoMode;
+extern float simTankPressure;
+void setDemoMode(bool enabled);
 
 #endif // CONFIG_H

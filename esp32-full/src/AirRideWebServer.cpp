@@ -55,6 +55,7 @@ void AirRideWebServer::begin() {
     server.on("/l", HTTP_GET, [this]() { handleLevel(); });
     server.on("/po", HTTP_GET, [this]() { handlePumpOverride(); });
     server.on("/time", HTTP_GET, [this]() { handleTimeSync(); });
+    server.on("/demo", HTTP_GET, [this]() { handleDemoToggle(); });
     server.on("/leak", HTTP_GET, [this]() { handleLeakStatus(); });
     server.onNotFound([this]() { handleNotFound(); });
 
@@ -132,6 +133,8 @@ void AirRideWebServer::handleStatus() {
     json += tankLockout ? "true" : "false";
     json += ",\"pumpEnabled\":";
     json += pumpEnabled ? "true" : "false";
+    json += ",\"demo\":";
+    json += demoMode ? "true" : "false";
 
     // Current preset values (may be customized)
     json += ",\"presets\":[";
@@ -447,6 +450,11 @@ void AirRideWebServer::handlePumpOverride() {
     } else {
         compressor->setMode(PUMP_AUTO);
     }
+    handleStatus();
+}
+
+void AirRideWebServer::handleDemoToggle() {
+    setDemoMode(!demoMode);
     handleStatus();
 }
 

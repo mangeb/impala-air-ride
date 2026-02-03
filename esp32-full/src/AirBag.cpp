@@ -61,18 +61,32 @@ void AirBag::update() {
 }
 
 float AirBag::readPressure() {
-#if DEMO_MODE
-    // Simulate pressure changes based on valve state
-    float simPressure = currentPressure > 0 ? currentPressure : DEMO_BAG_PSI;
-    if (state == VALVE_INFLATE) {
-        simPressure += 2.0;  // Simulate ~2 PSI per read cycle while inflating
-        if (simPressure > MAX_BAG_PSI) simPressure = MAX_BAG_PSI;
-    } else if (state == VALVE_DEFLATE) {
-        simPressure -= 2.0;  // Simulate ~2 PSI per read cycle while deflating
-        if (simPressure < MIN_BAG_PSI) simPressure = MIN_BAG_PSI;
+    if (demoMode) {
+        // Simulate pressure changes based on valve state
+        // Physics ported from frontend simulation, scaled for 100ms interval
+        float simPressure = currentPressure > 0 ? currentPressure : DEMO_BAG_PSI;
+
+        if (state == VALVE_INFLATE) {
+            // Differential pressure based fill (faster when tank >> bag)
+            float deltaP = max(0.0f, simTankPressure - simPressure);
+            if (deltaP > 1.0f) {
+                float fillSpeed = SIM_BAG_INFLATE_RATE * sqrt(deltaP);
+                simPressure += fillSpeed;
+            }
+            if (simPressure > MAX_BAG_PSI) simPressure = MAX_BAG_PSI;
+        } else if (state == VALVE_DEFLATE) {
+            // Dump to atmosphere - faster at higher pressure
+            float dumpSpeed = SIM_BAG_DEFLATE_RATE * sqrt(max(0.0f, simPressure));
+            simPressure -= dumpSpeed;
+            if (simPressure < MIN_BAG_PSI) simPressure = MIN_BAG_PSI;
+        }
+
+        // Add realistic jitter
+        simPressure += (random(-SIM_JITTER_RANGE, SIM_JITTER_RANGE) / 10000.0f);
+
+        return simPressure;
     }
-    return simPressure;
-#else
+
     // ESP32: 12-bit ADC (0-4095), 3.3V reference
     int rawValue = analogRead(pressureSensorPin);
     float voltage = (rawValue / ADC_RESOLUTION) * ADC_REFERENCE_VOLTAGE;
@@ -82,7 +96,6 @@ float AirBag::readPressure() {
 
     // Convert resistance to PSI
     return resistanceToPsi(resistance);
-#endif
 }
 
 float AirBag::readPressureSmoothed() {
