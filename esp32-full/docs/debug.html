@@ -56,6 +56,12 @@
   .memory { background: #00695c; }
   .pump { background: #e65100; }
   .pump.off { background: #555; }
+  .demo { background: #ff6f00; color: #fff; padding: 6px 12px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; font-weight: bold; }
+  .demo:active { opacity: 0.7; }
+  .demo.off { background: #555; }
+  .demo-status { font-size: 12px; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+  .demo-status.on { background: #ff6f00; color: #000; }
+  .demo-status.off { background: #333; color: #888; }
   .all-ctrl { background: #333; border: 1px solid #555; }
 
   .pump-status { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 12px; }
@@ -85,6 +91,16 @@
   <span id="conn-text" style="font-size:12px;color:#888">Disconnected</span>
   <button id="poll-toggle" onclick="togglePoll()">Auto-poll: OFF</button>
   <span style="font-size:11px;color:#555;margin-left:auto" id="last-update"></span>
+</div>
+
+<!-- Demo Mode -->
+<div class="section">
+  <h2>Simulation Mode</h2>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="demo" id="demo-toggle-btn" onclick="toggleDemo()">Toggle Demo</button>
+    <span class="demo-status off" id="demo-status">DEMO: OFF</span>
+    <span style="font-size:11px;color:#666">Simulates sensors &amp; tank physics on ESP32</span>
+  </div>
 </div>
 
 <!-- Tank -->
@@ -178,7 +194,7 @@ const BAGS = ['FL', 'FR', 'RL', 'RR'];
 const BAG_LABELS = { FL: 'Front Left', FR: 'Front Right', RL: 'Rear Left', RR: 'Rear Right' };
 let polling = false;
 let pollTimer = null;
-let state = { bags: [0,0,0,0], targets: [0,0,0,0], tank: 0, timeouts: [false,false,false,false], level: 0, lockout: false, pumpEnabled: true, pump: '', runtime: '', presets: null, maint: null, maintOverdue: false };
+let state = { bags: [0,0,0,0], targets: [0,0,0,0], tank: 0, timeouts: [false,false,false,false], level: 0, lockout: false, pumpEnabled: true, demo: false, pump: '', runtime: '', presets: null, maint: null, maintOverdue: false };
 
 function ev(e) { e.preventDefault(); }
 function getBase() { return document.getElementById('base-url').value.replace(/\/+$/, ''); }
@@ -284,6 +300,14 @@ function updateUI() {
     maintEl.textContent = '';
   }
 
+  // Demo mode
+  const demoBtn = document.getElementById('demo-toggle-btn');
+  const demoStatus = document.getElementById('demo-status');
+  demoBtn.className = state.demo ? 'demo' : 'demo off';
+  demoBtn.textContent = state.demo ? 'Disable Demo' : 'Enable Demo';
+  demoStatus.className = `demo-status ${state.demo ? 'on' : 'off'}`;
+  demoStatus.textContent = state.demo ? 'DEMO: ON' : 'DEMO: OFF';
+
   // Presets
   if (state.presets) {
     const names = ['Lay', 'Cruise', 'Max'];
@@ -306,6 +330,7 @@ async function pollNow() {
     state.level = data.level || 0;
     state.lockout = data.lockout || false;
     state.pumpEnabled = data.pumpEnabled !== false;
+    state.demo = data.demo || false;
     state.pump = data.pump || '';
     state.runtime = data.runtime || '';
     state.presets = data.presets || null;
@@ -364,6 +389,9 @@ async function setLevel(m) { await api(`/l?m=${m}`); if (!polling) pollNow(); }
 
 // Pumps
 async function togglePump() { await api('/po'); if (!polling) pollNow(); }
+
+// Demo mode
+async function toggleDemo() { await api('/demo'); if (!polling) pollNow(); }
 
 // Raw endpoint
 async function rawFetch() {

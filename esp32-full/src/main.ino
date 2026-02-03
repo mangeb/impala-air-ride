@@ -42,6 +42,21 @@ AirBag bags[NUM_BAGS] = {
 Compressor compressor(PUMP_1_PIN, PUMP_2_PIN);
 
 float tankPressure = 0.0;
+
+// Runtime demo mode state (toggled via /demo endpoint)
+bool demoMode = true;           // Start in demo mode for bench testing
+float simTankPressure = DEMO_TANK_PSI;
+
+void setDemoMode(bool enabled) {
+    if (enabled && !demoMode) {
+        // Entering demo mode: initialize sim state from current readings
+        simTankPressure = tankPressure > 0 ? tankPressure : DEMO_TANK_PSI;
+    }
+    demoMode = enabled;
+    Serial.print("[DEMO] Simulation mode ");
+    Serial.println(enabled ? "ENABLED" : "DISABLED");
+}
+
 AirRideWebServer webServer(bags, &compressor, &tankPressure);
 
 unsigned long lastPressureRead = 0;
@@ -129,6 +144,8 @@ void setup() {
     }
 
     Serial.println("====================================");
+    Serial.print("Demo/Simulation Mode: ");
+    Serial.println(demoMode ? "ENABLED" : "DISABLED");
     Serial.println("System Ready");
     printHelp();
 }
@@ -230,9 +247,36 @@ void setupWatchdog() {
 }
 
 float readTankPressure() {
-#if DEMO_MODE
-    return DEMO_TANK_PSI;
-#else
+    if (demoMode) {
+        // Simulate tank physics (ported from frontend simulation)
+
+        // Natural tank decay (slow leak)
+        simTankPressure -= SIM_TANK_DECAY_RATE;
+
+        // Pump fill - when compressor is running, tank fills up
+        if (compressor.isRunning()) {
+            float efficiency = max(0.3f, 1.0f - (simTankPressure / 200.0f));
+            float pumpCount = (compressor.isPump1Running() && compressor.isPump2Running()) ? 2.0f : 1.0f;
+            float fillRate = SIM_PUMP_FILL_RATE * efficiency * pumpCount;
+            simTankPressure += fillRate;
+        }
+
+        // Tank drain from active bag inflation
+        for (int i = 0; i < NUM_BAGS; i++) {
+            if (bags[i].isInflating()) {
+                float deltaP = max(0.0f, simTankPressure - bags[i].getPressure());
+                float drainRate = SIM_BAG_TANK_DRAIN * sqrt(deltaP);
+                simTankPressure -= drainRate;
+            }
+        }
+
+        // Clamp to valid range
+        if (simTankPressure < 0) simTankPressure = 0;
+        if (simTankPressure > SENSOR_MAX_PSI) simTankPressure = SENSOR_MAX_PSI;
+
+        return simTankPressure;
+    }
+
     // ESP32: 12-bit ADC, 3.3V reference
     int rawValue = analogRead(TANK_PRESSURE_PIN);
     float voltage = (rawValue / ADC_RESOLUTION) * ADC_REFERENCE_VOLTAGE;
@@ -252,7 +296,6 @@ float readTankPressure() {
     if (resistance > SENSOR_MAX_OHMS) resistance = SENSOR_MAX_OHMS;
 
     return ((resistance - SENSOR_MIN_OHMS) / (SENSOR_MAX_OHMS - SENSOR_MIN_OHMS)) * SENSOR_MAX_PSI;
-#endif
 }
 
 float readTankPressureSmoothed() {
