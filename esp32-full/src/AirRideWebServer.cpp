@@ -1,6 +1,7 @@
 #include "AirRideWebServer.h"
 #include "html_content.h"  // Auto-generated gzipped React UI
 #include "debug_html_content.h"  // Auto-generated gzipped debug console
+#include <sys/time.h>
 
 AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
     : bags(b),
@@ -11,7 +12,8 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
       levelMode(LEVEL_OFF),
       lastLevelAdjust(0),
       tankLockout(false),
-      pumpEnabled(true) {
+      pumpEnabled(true),
+      timeSynced(false) {
     // Initialize presets from defaults
     for (int p = 0; p < NUM_PRESETS; p++) {
         currentPresets[p][0] = DEFAULT_PRESETS[p].frontLeft;
@@ -46,6 +48,7 @@ void AirRideWebServer::begin() {
     server.on("/sp", HTTP_GET, [this]() { handleSavePreset(); });
     server.on("/l", HTTP_GET, [this]() { handleLevel(); });
     server.on("/po", HTTP_GET, [this]() { handlePumpOverride(); });
+    server.on("/time", HTTP_GET, [this]() { handleTimeSync(); });
     server.onNotFound([this]() { handleNotFound(); });
 
     server.begin();
@@ -466,6 +469,27 @@ const char* AirRideWebServer::getPresetName(int presetNum) const {
         return DEFAULT_PRESETS[presetNum].name;
     }
     return "Unknown";
+}
+
+void AirRideWebServer::handleTimeSync() {
+    if (server.hasArg("t")) {
+        long epoch = server.arg("t").toInt();
+        if (epoch > 1600000000L) { // Sanity check: after ~Sep 2020
+            struct timeval tv;
+            tv.tv_sec = epoch;
+            tv.tv_usec = 0;
+            settimeofday(&tv, NULL);
+            timeSynced = true;
+
+            struct tm timeinfo;
+            localtime_r(&tv.tv_sec, &timeinfo);
+            char buf[32];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+            Serial.print("[WEB] /time synced from browser: ");
+            Serial.println(buf);
+        }
+    }
+    server.send(200, "application/json", "{\"ok\":true}");
 }
 
 void AirRideWebServer::handleNotFound() {

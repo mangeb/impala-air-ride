@@ -77,6 +77,9 @@ class AirRideWebServer {
     bool hasStoredHeight;
     float lastHeight[NUM_BAGS];
 
+    // Time sync from browser
+    bool timeSynced;
+
     void handleRoot();
     void handleStatus();
     void handleBag();
@@ -85,6 +88,7 @@ class AirRideWebServer {
     void handleLevel();
     void handleSaveHeight();
     void handleRestoreHeight();
+    void handleTimeSync();
     void handleNotFound();
 
     String getHtmlPage();

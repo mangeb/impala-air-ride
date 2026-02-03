@@ -1,4 +1,5 @@
 #include "AirRideWebServer.h"
+#include <sys/time.h>
 
 // HTML page stored in PROGMEM - Enhanced with hold buttons, target display, level mode
 const char HTML_PAGE[] PROGMEM = R"rawliteral(
@@ -146,6 +147,7 @@ function upd(){fetch('/s').then(function(r){return r.json()}).then(function(d){
   if(d.hasHeight){restoreBtn.classList.add('has-data')}else{restoreBtn.classList.remove('has-data')}
 })}
 setInterval(upd,400);upd();
+fetch('/time?t='+Math.floor(Date.now()/1000));
 </script>
 </body>
 </html>
@@ -160,7 +162,8 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
       levelMode(LEVEL_OFF),
       lastLevelAdjust(0),
       tankLockout(false),
-      hasStoredHeight(false) {
+      hasStoredHeight(false),
+      timeSynced(false) {
     for (int i = 0; i < NUM_BAGS; i++) {
         lastHeight[i] = 0.0;
     }
@@ -189,6 +192,7 @@ void AirRideWebServer::begin() {
     server.on("/l", HTTP_GET, [this]() { handleLevel(); });
     server.on("/sh", HTTP_GET, [this]() { handleSaveHeight(); });
     server.on("/rh", HTTP_GET, [this]() { handleRestoreHeight(); });
+    server.on("/time", HTTP_GET, [this]() { handleTimeSync(); });
     server.onNotFound([this]() { handleNotFound(); });
 
     server.begin();
@@ -391,6 +395,27 @@ void AirRideWebServer::handleRestoreHeight() {
         }
     }
     handleStatus();
+}
+
+void AirRideWebServer::handleTimeSync() {
+    if (server.hasArg("t")) {
+        long epoch = server.arg("t").toInt();
+        if (epoch > 1600000000L) { // Sanity check: after ~Sep 2020
+            struct timeval tv;
+            tv.tv_sec = epoch;
+            tv.tv_usec = 0;
+            settimeofday(&tv, NULL);
+            timeSynced = true;
+
+            struct tm timeinfo;
+            localtime_r(&tv.tv_sec, &timeinfo);
+            char buf[32];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+            Serial.print("Time synced from browser: ");
+            Serial.println(buf);
+        }
+    }
+    server.send(200, "application/json", "{\"ok\":true}");
 }
 
 void AirRideWebServer::handleNotFound() {

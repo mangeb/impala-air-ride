@@ -242,4 +242,14 @@ export const airService = {
       // Offline: no-op
     }
   },
+
+  // Sync browser time to ESP32: GET /time?t=<epoch_seconds>
+  async syncTime() {
+    const epoch = Math.floor(Date.now() / 1000);
+    try {
+      await fetch(`${BASE_URL}/time?t=${epoch}`, { signal: AbortSignal.timeout(1000) });
+    } catch (e) {
+      // Offline: no-op
+    }
+  },
 };

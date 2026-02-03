@@ -79,6 +79,11 @@ export default function App() {
     }
   }, [saveModal, clearLongPress, applyPreset]);
 
+  // Sync browser time to ESP32 on connect
+  useEffect(() => {
+    airService.syncTime();
+  }, []);
+
   // Poll for status (400ms matches ESP32 web server interval)
   useEffect(() => {
     const interval = setInterval(async () => {
