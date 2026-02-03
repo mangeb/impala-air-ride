@@ -242,4 +242,36 @@ export const airService = {
       // Offline: no-op
     }
   },
+
+  // Sync browser time to ESP32: GET /time?t=<epoch_seconds>
+  async syncTime() {
+    const epoch = Math.floor(Date.now() / 1000);
+    try {
+      await fetch(`${BASE_URL}/time?t=${epoch}`, { signal: AbortSignal.timeout(1000) });
+    } catch (e) {
+      // Offline: no-op
+    }
+  },
+
+  // Leak monitor: GET /leak
+  async getLeakStatus() {
+    try {
+      const response = await fetch(`${BASE_URL}/leak`, { signal: AbortSignal.timeout(2000) });
+      if (!response.ok) throw new Error('Network response was not ok');
+      const text = await response.text();
+      const sanitized = text.replace(/\bnan\b/gi, '0').replace(/\b-?inf\b/gi, '0');
+      return JSON.parse(sanitized);
+    } catch (e) {
+      return { valid: false };
+    }
+  },
+
+  // Reset leak monitor: GET /leak?reset=1
+  async resetLeakMonitor() {
+    try {
+      await fetch(`${BASE_URL}/leak?reset=1`, { signal: AbortSignal.timeout(1000) });
+    } catch (e) {
+      // Offline: no-op
+    }
+  },
 };

@@ -400,6 +400,9 @@ async function rawFetch() {
   if (!polling) pollNow();
 }
 
+// Sync browser time to ESP32
+fetch(BASE + '/time?t=' + Math.floor(Date.now() / 1000)).catch(() => {});
+
 // Build initial UI
 updateUI();
 </script>

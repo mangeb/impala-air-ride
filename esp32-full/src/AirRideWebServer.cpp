@@ -1,6 +1,7 @@
 #include "AirRideWebServer.h"
 #include "html_content.h"  // Auto-generated gzipped React UI
 #include "debug_html_content.h"  // Auto-generated gzipped debug console
+#include <sys/time.h>
 
 AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
     : bags(b),
@@ -11,7 +12,11 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
       levelMode(LEVEL_OFF),
       lastLevelAdjust(0),
       tankLockout(false),
-      pumpEnabled(true) {
+      pumpEnabled(true),
+      timeSynced(false),
+      leakSnapshotValid(false),
+      leakSnapshotEpoch(0),
+      lastLeakSnapshotSave(0) {
     // Initialize presets from defaults
     for (int p = 0; p < NUM_PRESETS; p++) {
         currentPresets[p][0] = DEFAULT_PRESETS[p].frontLeft;
@@ -35,6 +40,9 @@ void AirRideWebServer::begin() {
     // Load custom presets from EEPROM
     loadPresetsFromEEPROM();
 
+    // Load leak snapshot from EEPROM
+    loadLeakSnapshot();
+
     // Setup routes
     server.on("/", HTTP_GET, [this]() { handleRoot(); });
     server.on("/debug", HTTP_GET, [this]() { handleDebug(); });
@@ -46,7 +54,9 @@ void AirRideWebServer::begin() {
     server.on("/sp", HTTP_GET, [this]() { handleSavePreset(); });
     server.on("/l", HTTP_GET, [this]() { handleLevel(); });
     server.on("/po", HTTP_GET, [this]() { handlePumpOverride(); });
+    server.on("/time", HTTP_GET, [this]() { handleTimeSync(); });
     server.on("/demo", HTTP_GET, [this]() { handleDemoToggle(); });
+    server.on("/leak", HTTP_GET, [this]() { handleLeakStatus(); });
     server.onNotFound([this]() { handleNotFound(); });
 
     server.begin();
@@ -69,6 +79,9 @@ void AirRideWebServer::update() {
 
     // Update level mode
     updateLevelMode();
+
+    // Periodic leak snapshot save
+    updateLeakSnapshot();
 }
 
 void AirRideWebServer::handleRoot() {
@@ -474,6 +487,196 @@ const char* AirRideWebServer::getPresetName(int presetNum) const {
         return DEFAULT_PRESETS[presetNum].name;
     }
     return "Unknown";
+}
+
+void AirRideWebServer::handleTimeSync() {
+    if (server.hasArg("t")) {
+        long epoch = server.arg("t").toInt();
+        if (epoch > 1600000000L) { // Sanity check: after ~Sep 2020
+            struct timeval tv;
+            tv.tv_sec = epoch;
+            tv.tv_usec = 0;
+            settimeofday(&tv, NULL);
+            timeSynced = true;
+
+            struct tm timeinfo;
+            localtime_r(&tv.tv_sec, &timeinfo);
+            char buf[32];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+            Serial.print("[WEB] /time synced from browser: ");
+            Serial.println(buf);
+        }
+    }
+    server.send(200, "application/json", "{\"ok\":true}");
+}
+
+// ============================================
+// LEAK MONITOR
+// ============================================
+
+void AirRideWebServer::loadLeakSnapshot() {
+    if (EEPROM.read(EEPROM_ADDR_LEAK_FLAG) != LEAK_SNAPSHOT_VALID) return;
+
+    EEPROM.get(EEPROM_ADDR_LEAK_TIME, leakSnapshotEpoch);
+    if (leakSnapshotEpoch < 1600000000UL) return; // Invalid timestamp
+
+    for (int i = 0; i < NUM_BAGS + 1; i++) {
+        EEPROM.get(EEPROM_ADDR_LEAK_PRESSURES + i * 4, leakSnapshotPressures[i]);
+        if (isnan(leakSnapshotPressures[i]) || isinf(leakSnapshotPressures[i])) {
+            Serial.println("Leak snapshot has corrupt data — discarding");
+            return;
+        }
+    }
+
+    leakSnapshotValid = true;
+    Serial.print("Leak snapshot loaded (");
+    struct tm timeinfo;
+    time_t t = (time_t)leakSnapshotEpoch;
+    localtime_r(&t, &timeinfo);
+    char buf[32];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+    Serial.print(buf);
+    Serial.print("): FL=");
+    Serial.print(leakSnapshotPressures[0], 1);
+    Serial.print(" FR=");
+    Serial.print(leakSnapshotPressures[1], 1);
+    Serial.print(" RL=");
+    Serial.print(leakSnapshotPressures[2], 1);
+    Serial.print(" RR=");
+    Serial.print(leakSnapshotPressures[3], 1);
+    Serial.print(" Tank=");
+    Serial.println(leakSnapshotPressures[4], 1);
+}
+
+void AirRideWebServer::saveLeakSnapshot() {
+    time_t now = time(NULL);
+    leakSnapshotEpoch = (uint32_t)now;
+
+    leakSnapshotPressures[0] = bags[FRONT_LEFT].getPressure();
+    leakSnapshotPressures[1] = bags[FRONT_RIGHT].getPressure();
+    leakSnapshotPressures[2] = bags[REAR_LEFT].getPressure();
+    leakSnapshotPressures[3] = bags[REAR_RIGHT].getPressure();
+    leakSnapshotPressures[4] = *tankPressure;
+
+    EEPROM.write(EEPROM_ADDR_LEAK_FLAG, LEAK_SNAPSHOT_VALID);
+    EEPROM.put(EEPROM_ADDR_LEAK_TIME, leakSnapshotEpoch);
+    for (int i = 0; i < NUM_BAGS + 1; i++) {
+        EEPROM.put(EEPROM_ADDR_LEAK_PRESSURES + i * 4, leakSnapshotPressures[i]);
+    }
+    EEPROM.commit();
+
+    leakSnapshotValid = true;
+    lastLeakSnapshotSave = millis();
+
+    Serial.print("Leak snapshot saved: FL=");
+    Serial.print(leakSnapshotPressures[0], 1);
+    Serial.print(" FR=");
+    Serial.print(leakSnapshotPressures[1], 1);
+    Serial.print(" RL=");
+    Serial.print(leakSnapshotPressures[2], 1);
+    Serial.print(" RR=");
+    Serial.print(leakSnapshotPressures[3], 1);
+    Serial.print(" Tank=");
+    Serial.println(leakSnapshotPressures[4], 1);
+}
+
+void AirRideWebServer::updateLeakSnapshot() {
+    if (!timeSynced) return;
+
+    unsigned long now = millis();
+    if (now - lastLeakSnapshotSave < LEAK_SNAPSHOT_INTERVAL) return;
+
+    // Only save when all bags are holding (not actively inflating/deflating)
+    for (int i = 0; i < NUM_BAGS; i++) {
+        if (!bags[i].isHolding()) return;
+    }
+
+    // Need at least one sensor with meaningful pressure
+    bool hasPressure = (*tankPressure > LEAK_MIN_SNAPSHOT_PSI);
+    if (!hasPressure) {
+        for (int i = 0; i < NUM_BAGS; i++) {
+            if (bags[i].getPressure() > LEAK_MIN_SNAPSHOT_PSI) {
+                hasPressure = true;
+                break;
+            }
+        }
+    }
+    if (!hasPressure) return;
+
+    saveLeakSnapshot();
+}
+
+void AirRideWebServer::handleLeakStatus() {
+    // Handle reset
+    if (server.hasArg("reset") && server.arg("reset") == "1") {
+        EEPROM.write(EEPROM_ADDR_LEAK_FLAG, 0);
+        EEPROM.commit();
+        leakSnapshotValid = false;
+        leakSnapshotEpoch = 0;
+        Serial.println("[WEB] /leak RESET — snapshot cleared");
+        server.send(200, "application/json", "{\"valid\":false}");
+        return;
+    }
+
+    if (!leakSnapshotValid || !timeSynced) {
+        server.send(200, "application/json", "{\"valid\":false}");
+        return;
+    }
+
+    time_t now = time(NULL);
+    long elapsed = (long)now - (long)leakSnapshotEpoch;
+    if (elapsed < 0) elapsed = 0;
+    float elapsedHours = elapsed / 3600.0;
+
+    float current[5];
+    current[0] = bags[FRONT_LEFT].getPressure();
+    current[1] = bags[FRONT_RIGHT].getPressure();
+    current[2] = bags[REAR_LEFT].getPressure();
+    current[3] = bags[REAR_RIGHT].getPressure();
+    current[4] = *tankPressure;
+
+    String json = "{\"valid\":true,\"elapsed\":";
+    json += String(elapsed);
+
+    json += ",\"snapshot\":[";
+    for (int i = 0; i < 5; i++) {
+        if (i > 0) json += ",";
+        json += String(leakSnapshotPressures[i], 1);
+    }
+
+    json += "],\"current\":[";
+    for (int i = 0; i < 5; i++) {
+        if (i > 0) json += ",";
+        json += String(current[i], 1);
+    }
+
+    json += "],\"rates\":[";
+    for (int i = 0; i < 5; i++) {
+        if (i > 0) json += ",";
+        float drop = leakSnapshotPressures[i] - current[i];
+        float rate = (elapsedHours > 0.01) ? (drop / elapsedHours) : 0.0;
+        json += String(rate, 2);
+    }
+
+    json += "],\"status\":[";
+    for (int i = 0; i < 5; i++) {
+        if (i > 0) json += ",";
+        float drop = leakSnapshotPressures[i] - current[i];
+        float rate = (elapsedHours > 0.01) ? (drop / elapsedHours) : 0.0;
+        // Sensors that weren't pressurized are always "ok"
+        if (leakSnapshotPressures[i] < LEAK_MIN_SNAPSHOT_PSI) {
+            json += "0";
+        } else if (drop >= LEAK_ALERT_DROP_PSI && rate >= LEAK_ALERT_RATE_PSI_HR) {
+            json += "2"; // leak
+        } else if (drop >= LEAK_WARN_DROP_PSI && rate >= LEAK_WARN_RATE_PSI_HR) {
+            json += "1"; // warn
+        } else {
+            json += "0"; // ok
+        }
+    }
+    json += "]}";
+
+    server.send(200, "application/json", json);
 }
 
 void AirRideWebServer::handleNotFound() {

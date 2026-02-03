@@ -1,4 +1,5 @@
 #include "AirRideWebServer.h"
+#include <sys/time.h>
 
 // HTML page stored in PROGMEM
 const char HTML_PAGE[] PROGMEM = R"rawliteral(
@@ -58,6 +59,7 @@ for(var i=0;i<4;i++)document.getElementById('b'+i).textContent=d.bags[i].toFixed
 document.getElementById('pm').textContent=d.pump;
 })}
 setInterval(upd,400);upd();
+fetch('/time?t='+Math.floor(Date.now()/1000));
 </script>
 </body>
 </html>
@@ -68,7 +70,8 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
       compressor(c),
       tankPressure(tp),
       server(80),
-      wifiReady(false) {
+      wifiReady(false),
+      timeSynced(false) {
 }
 
 void AirRideWebServer::begin() {
@@ -87,6 +90,7 @@ void AirRideWebServer::begin() {
     server.on("/s", HTTP_GET, [this]() { handleStatus(); });
     server.on("/b", HTTP_GET, [this]() { handleBag(); });
     server.on("/p", HTTP_GET, [this]() { handlePreset(); });
+    server.on("/time", HTTP_GET, [this]() { handleTimeSync(); });
     server.onNotFound([this]() { handleNotFound(); });
 
     server.begin();
@@ -169,6 +173,27 @@ void AirRideWebServer::handlePreset() {
         }
     }
     handleStatus();
+}
+
+void AirRideWebServer::handleTimeSync() {
+    if (server.hasArg("t")) {
+        long epoch = server.arg("t").toInt();
+        if (epoch > 1600000000L) { // Sanity check: after ~Sep 2020
+            struct timeval tv;
+            tv.tv_sec = epoch;
+            tv.tv_usec = 0;
+            settimeofday(&tv, NULL);
+            timeSynced = true;
+
+            struct tm timeinfo;
+            localtime_r(&tv.tv_sec, &timeinfo);
+            char buf[32];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+            Serial.print("Time synced from browser: ");
+            Serial.println(buf);
+        }
+    }
+    server.send(200, "application/json", "{\"ok\":true}");
 }
 
 void AirRideWebServer::handleNotFound() {
