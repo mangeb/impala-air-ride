@@ -81,6 +81,20 @@ float AirBag::readPressure() {
             if (simPressure < MIN_BAG_PSI) simPressure = MIN_BAG_PSI;
         }
 
+        // Apply simulated leak on this bag
+        if (simLeakTarget >= 0 && simLeakTarget <= 3) {
+            // Map bag name to index for comparison
+            int bagIdx = -1;
+            if (bagName[0] == 'F' && bagName[1] == 'L') bagIdx = 0;
+            else if (bagName[0] == 'F' && bagName[1] == 'R') bagIdx = 1;
+            else if (bagName[0] == 'R' && bagName[1] == 'L') bagIdx = 2;
+            else if (bagName[0] == 'R' && bagName[1] == 'R') bagIdx = 3;
+            if (bagIdx == simLeakTarget) {
+                simPressure -= simLeakRate;
+                if (simPressure < 0) simPressure = 0;
+            }
+        }
+
         // Add realistic jitter
         simPressure += (random(-SIM_JITTER_RANGE, SIM_JITTER_RANGE) / 10000.0f);
 

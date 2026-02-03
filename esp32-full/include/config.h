@@ -233,9 +233,15 @@
 #define SIM_BAG_TANK_DRAIN      0.12   // Tank drain per inflating bag * sqrt(deltaP)
 #define SIM_JITTER_RANGE        50     // Random jitter ±0.005 PSI (value/10000)
 
+// Simulated leak for testing leak detection (toggled via /simleak endpoint)
+// simLeakTarget: -1=none, 0=FL, 1=FR, 2=RL, 3=RR, 4=tank, 5=random
+#define SIM_LEAK_RATE_PSI_TICK  0.15   // Aggressive: ~1.5 PSI/sec (at 100ms ticks)
+
 // Runtime demo mode globals (defined in main.ino)
 extern bool demoMode;
 extern float simTankPressure;
+extern int simLeakTarget;           // Which sensor is leaking (-1=none)
+extern float simLeakRate;           // PSI per tick to subtract
 void setDemoMode(bool enabled);
 
 #endif // CONFIG_H

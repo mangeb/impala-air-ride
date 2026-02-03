@@ -120,6 +120,7 @@ function parseEsp32Status(data: any) {
       FL: p[0], FR: p[1], RL: p[2], RR: p[3]
     })) : undefined,
     tankMaint: data.tankMaint || undefined,
+    simLeak: data.simLeak || undefined,
   };
 }
 

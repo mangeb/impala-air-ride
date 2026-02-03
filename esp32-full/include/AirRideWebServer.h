@@ -120,6 +120,7 @@ class AirRideWebServer {
     void handleTankMaint();
     void loadTankMaintFromEEPROM();
     void saveTankMaintToEEPROM(uint32_t epoch);
+    void handleSimLeak();
     void handleNotFound();
 };
 

@@ -47,6 +47,10 @@ float tankPressure = 0.0;
 bool demoMode = true;           // Start in demo mode for bench testing
 float simTankPressure = DEMO_TANK_PSI;
 
+// Simulated leak state (toggled via /simleak endpoint)
+int simLeakTarget = -1;         // -1=none, 0-3=bag index, 4=tank
+float simLeakRate = SIM_LEAK_RATE_PSI_TICK;
+
 void setDemoMode(bool enabled) {
     if (enabled && !demoMode) {
         // Entering demo mode: initialize sim state from current readings
@@ -268,6 +272,11 @@ float readTankPressure() {
                 float drainRate = SIM_BAG_TANK_DRAIN * sqrt(deltaP);
                 simTankPressure -= drainRate;
             }
+        }
+
+        // Apply simulated leak on tank
+        if (simLeakTarget == 4) {
+            simTankPressure -= simLeakRate;
         }
 
         // Clamp to valid range

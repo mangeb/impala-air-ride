@@ -188,6 +188,27 @@
   </div>
 </div>
 
+<!-- Simulated Leak -->
+<div class="section">
+  <h2>Simulated Leak (Demo Mode)</h2>
+  <div style="font-size:12px;margin-bottom:4px">
+    <span>Status: <strong id="simleak-status" style="color:#888">INACTIVE</strong></span>
+    <span style="margin-left:12px">Target: <strong id="simleak-target" style="color:#888">--</strong></span>
+  </div>
+  <div class="btn-row" style="margin-bottom:4px">
+    <button style="background:#c62828;color:#fff;font-weight:bold" onclick="startSimLeak('random')">🔴 Random Leak</button>
+    <button style="background:#c62828;color:#fff" onclick="startSimLeak(0)">Leak FL</button>
+    <button style="background:#c62828;color:#fff" onclick="startSimLeak(1)">Leak FR</button>
+    <button style="background:#c62828;color:#fff" onclick="startSimLeak(2)">Leak RL</button>
+    <button style="background:#c62828;color:#fff" onclick="startSimLeak(3)">Leak RR</button>
+    <button style="background:#c62828;color:#fff" onclick="startSimLeak(4)">Leak Tank</button>
+  </div>
+  <div class="btn-row">
+    <button style="background:#4caf50;color:#fff;font-weight:bold" onclick="stopSimLeak()">■ Stop Leak</button>
+  </div>
+  <div style="font-size:11px;color:#666;margin-top:4px">Aggressive leak ~1.5 PSI/sec. Requires demo mode ON. Use to test leak monitor &amp; UI alerts.</div>
+</div>
+
 <!-- Raw Endpoints -->
 <div class="section">
   <h2>Raw Endpoint Test</h2>
@@ -208,7 +229,7 @@ const BAGS = ['FL', 'FR', 'RL', 'RR'];
 const BAG_LABELS = { FL: 'Front Left', FR: 'Front Right', RL: 'Rear Left', RR: 'Rear Right' };
 let polling = false;
 let pollTimer = null;
-let state = { bags: [0,0,0,0], targets: [0,0,0,0], tank: 0, timeouts: [false,false,false,false], level: 0, lockout: false, pumpEnabled: true, demo: false, pump: '', runtime: '', presets: null, maint: null, maintOverdue: false, tankMaint: null };
+let state = { bags: [0,0,0,0], targets: [0,0,0,0], tank: 0, timeouts: [false,false,false,false], level: 0, lockout: false, pumpEnabled: true, demo: false, pump: '', runtime: '', presets: null, maint: null, maintOverdue: false, tankMaint: null, simLeak: null };
 
 function ev(e) { e.preventDefault(); }
 function getBase() { return document.getElementById('base-url').value.replace(/\/+$/, ''); }
@@ -362,6 +383,22 @@ function updateUI() {
     tmLast.textContent = 'Last service: --';
   }
 
+  // Simulated Leak
+  const sl = state.simLeak;
+  const slStatus = document.getElementById('simleak-status');
+  const slTarget = document.getElementById('simleak-target');
+  if (sl && sl.active) {
+    slStatus.textContent = 'LEAKING';
+    slStatus.style.color = '#f44336';
+    slTarget.textContent = sl.targetName || ('index ' + sl.target);
+    slTarget.style.color = '#f44336';
+  } else {
+    slStatus.textContent = 'INACTIVE';
+    slStatus.style.color = '#4caf50';
+    slTarget.textContent = '--';
+    slTarget.style.color = '#888';
+  }
+
   document.getElementById('last-update').textContent = 'Updated: ' + new Date().toLocaleTimeString();
 }
 
@@ -382,6 +419,7 @@ async function pollNow() {
     state.maint = data.maint || null;
     state.maintOverdue = data.maintOverdue || false;
     state.tankMaint = data.tankMaint || null;
+    state.simLeak = data.simLeak || null;
     document.getElementById('conn-dot').className = 'dot ok';
     document.getElementById('conn-text').textContent = 'Connected';
   } else {
@@ -449,6 +487,10 @@ async function setTankMaintDate() {
   await api(`/tank?set=${epoch}`);
   if (!polling) pollNow();
 }
+
+// Simulated leak
+async function startSimLeak(target) { await api(`/simleak?target=${target}`); if (!polling) pollNow(); }
+async function stopSimLeak() { await api('/simleak?stop=1'); if (!polling) pollNow(); }
 
 // Raw endpoint
 async function rawFetch() {

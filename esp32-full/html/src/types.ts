@@ -24,6 +24,7 @@ export interface SystemState {
   level?: number;  // 0=off, 1=front, 2=rear, 3=all
   presets?: TargetData[];
   tankMaint?: TankMaintStatus;
+  simLeak?: SimLeakStatus;
 }
 
 export interface LeakStatus {
@@ -41,4 +42,11 @@ export interface TankMaintStatus {
   due?: boolean;           // true if overdue
   daysRemaining?: number;  // positive = days left, negative = days overdue
   timeSynced?: boolean;    // whether ESP32 has time sync
+}
+
+export interface SimLeakStatus {
+  active: boolean;
+  target: number;          // -1=none, 0=FL, 1=FR, 2=RL, 3=RR, 4=tank
+  targetName?: string;     // "FL", "FR", "RL", "RR", "TANK"
+  rate?: number;
 }

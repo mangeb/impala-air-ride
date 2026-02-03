@@ -63,6 +63,7 @@ void AirRideWebServer::begin() {
     server.on("/demo", HTTP_GET, [this]() { handleDemoToggle(); });
     server.on("/leak", HTTP_GET, [this]() { handleLeakStatus(); });
     server.on("/tank", HTTP_GET, [this]() { handleTankMaint(); });
+    server.on("/simleak", HTTP_GET, [this]() { handleSimLeak(); });
     server.onNotFound([this]() { handleNotFound(); });
 
     server.begin();
@@ -180,6 +181,19 @@ void AirRideWebServer::handleStatus() {
     }
 
     // Tank maintenance timer
+    // Simulated leak status
+    json += ",\"simLeak\":{\"active\":";
+    json += (simLeakTarget >= 0) ? "true" : "false";
+    json += ",\"target\":";
+    json += String(simLeakTarget);
+    if (simLeakTarget >= 0 && simLeakTarget <= 4) {
+        const char* names[] = {"FL", "FR", "RL", "RR", "TANK"};
+        json += ",\"targetName\":\"";
+        json += names[simLeakTarget];
+        json += "\"";
+    }
+    json += "}";
+
     json += ",\"tankMaint\":{\"valid\":";
     json += tankMaintValid ? "true" : "false";
     if (tankMaintValid) {
@@ -793,6 +807,60 @@ void AirRideWebServer::handleTankMaint() {
     }
     json += ",\"timeSynced\":";
     json += timeSynced ? "true" : "false";
+    json += "}";
+
+    server.send(200, "application/json", json);
+}
+
+void AirRideWebServer::handleSimLeak() {
+    // Start simulated leak: /simleak?target=<0-4|random>  (0=FL,1=FR,2=RL,3=RR,4=tank)
+    // Stop simulated leak:  /simleak?stop=1
+    // Optional rate:        /simleak?target=2&rate=0.3
+
+    if (server.hasArg("stop") && server.arg("stop") == "1") {
+        simLeakTarget = -1;
+        Serial.println("[SIM] Leak simulation STOPPED");
+    } else if (server.hasArg("target")) {
+        String targetStr = server.arg("target");
+        if (targetStr == "random") {
+            // Pick a random bag or tank (0-4)
+            simLeakTarget = random(0, 5);
+        } else {
+            simLeakTarget = targetStr.toInt();
+            if (simLeakTarget < 0 || simLeakTarget > 4) simLeakTarget = -1;
+        }
+
+        // Optional custom rate
+        if (server.hasArg("rate")) {
+            simLeakRate = server.arg("rate").toFloat();
+            if (simLeakRate <= 0) simLeakRate = SIM_LEAK_RATE_PSI_TICK;
+        } else {
+            simLeakRate = SIM_LEAK_RATE_PSI_TICK;
+        }
+
+        const char* names[] = {"FL", "FR", "RL", "RR", "TANK"};
+        if (simLeakTarget >= 0 && simLeakTarget <= 4) {
+            Serial.print("[SIM] Leak simulation STARTED on ");
+            Serial.print(names[simLeakTarget]);
+            Serial.print(" at ");
+            Serial.print(simLeakRate, 3);
+            Serial.println(" PSI/tick");
+        }
+    }
+
+    // Return current leak sim status
+    String json = "{\"active\":";
+    json += (simLeakTarget >= 0) ? "true" : "false";
+    json += ",\"target\":";
+    json += String(simLeakTarget);
+    if (simLeakTarget >= 0 && simLeakTarget <= 4) {
+        const char* names[] = {"FL", "FR", "RL", "RR", "TANK"};
+        json += ",\"targetName\":\"";
+        json += names[simLeakTarget];
+        json += "\"";
+    }
+    json += ",\"rate\":";
+    json += String(simLeakRate, 3);
     json += "}";
 
     server.send(200, "application/json", json);
