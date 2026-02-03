@@ -16,7 +16,9 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
       timeSynced(false),
       leakSnapshotValid(false),
       leakSnapshotEpoch(0),
-      lastLeakSnapshotSave(0) {
+      lastLeakSnapshotSave(0),
+      tankMaintLastService(0),
+      tankMaintValid(false) {
     // Initialize presets from defaults
     for (int p = 0; p < NUM_PRESETS; p++) {
         currentPresets[p][0] = DEFAULT_PRESETS[p].frontLeft;
@@ -43,6 +45,9 @@ void AirRideWebServer::begin() {
     // Load leak snapshot from EEPROM
     loadLeakSnapshot();
 
+    // Load tank maintenance timer from EEPROM
+    loadTankMaintFromEEPROM();
+
     // Setup routes
     server.on("/", HTTP_GET, [this]() { handleRoot(); });
     server.on("/debug", HTTP_GET, [this]() { handleDebug(); });
@@ -57,6 +62,7 @@ void AirRideWebServer::begin() {
     server.on("/time", HTTP_GET, [this]() { handleTimeSync(); });
     server.on("/demo", HTTP_GET, [this]() { handleDemoToggle(); });
     server.on("/leak", HTTP_GET, [this]() { handleLeakStatus(); });
+    server.on("/tank", HTTP_GET, [this]() { handleTankMaint(); });
     server.onNotFound([this]() { handleNotFound(); });
 
     server.begin();
@@ -172,6 +178,24 @@ void AirRideWebServer::handleStatus() {
         json += "\",\"maintOverdue\":";
         json += (p1Overdue || p2Overdue) ? "true" : "false";
     }
+
+    // Tank maintenance timer
+    json += ",\"tankMaint\":{\"valid\":";
+    json += tankMaintValid ? "true" : "false";
+    if (tankMaintValid) {
+        json += ",\"lastService\":";
+        json += String(tankMaintLastService);
+        if (timeSynced) {
+            json += ",\"due\":";
+            json += isTankMaintDue() ? "true" : "false";
+            json += ",\"daysRemaining\":";
+            json += String(getTankMaintDaysRemaining());
+        }
+    }
+    json += ",\"timeSynced\":";
+    json += timeSynced ? "true" : "false";
+    json += "}";
+
     json += "}";
 
     server.send(200, "application/json", json);
@@ -675,6 +699,101 @@ void AirRideWebServer::handleLeakStatus() {
         }
     }
     json += "]}";
+
+    server.send(200, "application/json", json);
+}
+
+// ============================================
+// TANK MAINTENANCE TIMER
+// ============================================
+
+void AirRideWebServer::loadTankMaintFromEEPROM() {
+    if (EEPROM.read(EEPROM_ADDR_TANK_MAINT_FLAG) != TANK_MAINT_VALID) return;
+
+    EEPROM.get(EEPROM_ADDR_TANK_MAINT_EPOCH, tankMaintLastService);
+    if (tankMaintLastService < 1600000000UL) return; // Invalid timestamp
+
+    tankMaintValid = true;
+
+    struct tm timeinfo;
+    time_t t = (time_t)tankMaintLastService;
+    localtime_r(&t, &timeinfo);
+    char buf[32];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+    Serial.print("Tank maintenance last service: ");
+    Serial.println(buf);
+}
+
+void AirRideWebServer::saveTankMaintToEEPROM(uint32_t epoch) {
+    tankMaintLastService = epoch;
+    tankMaintValid = true;
+
+    EEPROM.write(EEPROM_ADDR_TANK_MAINT_FLAG, TANK_MAINT_VALID);
+    EEPROM.put(EEPROM_ADDR_TANK_MAINT_EPOCH, tankMaintLastService);
+    EEPROM.commit();
+
+    Serial.print("Tank maintenance saved: epoch=");
+    Serial.println(tankMaintLastService);
+}
+
+bool AirRideWebServer::isTankMaintDue() const {
+    if (!tankMaintValid || !timeSynced) return false;
+
+    time_t now = time(NULL);
+    uint32_t elapsed = (uint32_t)now - tankMaintLastService;
+    return elapsed >= TANK_MAINT_INTERVAL_SEC;
+}
+
+int AirRideWebServer::getTankMaintDaysRemaining() const {
+    if (!tankMaintValid || !timeSynced) return -1;
+
+    time_t now = time(NULL);
+    uint32_t elapsed = (uint32_t)now - tankMaintLastService;
+    if (elapsed >= TANK_MAINT_INTERVAL_SEC) {
+        // Overdue — return negative days
+        return -((int)(elapsed - TANK_MAINT_INTERVAL_SEC) / 86400);
+    }
+    return (int)(TANK_MAINT_INTERVAL_SEC - elapsed) / 86400;
+}
+
+void AirRideWebServer::handleTankMaint() {
+    // Reset: mark current time as last service
+    if (server.hasArg("reset") && server.arg("reset") == "1") {
+        if (!timeSynced) {
+            server.send(200, "application/json", "{\"error\":\"Time not synced\"}");
+            return;
+        }
+        time_t now = time(NULL);
+        saveTankMaintToEEPROM((uint32_t)now);
+        Serial.println("[WEB] /tank RESET — service complete");
+    }
+
+    // Set specific epoch (debug): /tank?set=<epoch>
+    if (server.hasArg("set")) {
+        uint32_t epoch = (uint32_t)server.arg("set").toInt();
+        if (epoch > 1600000000UL) {
+            saveTankMaintToEEPROM(epoch);
+            Serial.print("[WEB] /tank SET epoch=");
+            Serial.println(epoch);
+        }
+    }
+
+    // Return status JSON
+    String json = "{\"valid\":";
+    json += tankMaintValid ? "true" : "false";
+    if (tankMaintValid) {
+        json += ",\"lastService\":";
+        json += String(tankMaintLastService);
+        if (timeSynced) {
+            json += ",\"due\":";
+            json += isTankMaintDue() ? "true" : "false";
+            json += ",\"daysRemaining\":";
+            json += String(getTankMaintDaysRemaining());
+        }
+    }
+    json += ",\"timeSynced\":";
+    json += timeSynced ? "true" : "false";
+    json += "}";
 
     server.send(200, "application/json", json);
 }

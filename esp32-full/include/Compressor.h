@@ -67,6 +67,9 @@ class Compressor {
     bool alternatePump;          // Which pump to use when alternating (false=pump1, true=pump2)
     unsigned long lastSwitchTime;
 
+    // Fill cycle hysteresis: true while actively filling, prevents rapid on/off cycling
+    bool filling;
+
     // Runtime tracking
     unsigned long pump1RuntimeMs;
     unsigned long pump2RuntimeMs;

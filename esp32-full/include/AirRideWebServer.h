@@ -57,6 +57,10 @@ class AirRideWebServer {
     bool isPumpEnabled() const { return pumpEnabled; }
     void setPumpEnabled(bool enabled) { pumpEnabled = enabled; }
 
+    // Tank maintenance timer
+    bool isTankMaintDue() const;
+    int getTankMaintDaysRemaining() const;
+
     // Actions callable from both web and serial
     void applyPreset(int presetNum);
     const char* getPresetName(int presetNum) const;
@@ -88,6 +92,10 @@ class AirRideWebServer {
     float leakSnapshotPressures[NUM_BAGS + 1]; // FL, FR, RL, RR, Tank
     unsigned long lastLeakSnapshotSave;
 
+    // Tank maintenance timer
+    uint32_t tankMaintLastService;
+    bool tankMaintValid;
+
     // Mutable presets (loaded from EEPROM, fall back to DEFAULT_PRESETS)
     float currentPresets[NUM_PRESETS][4]; // [preset][FL, FR, RL, RR]
     void loadPresetsFromEEPROM();
@@ -109,6 +117,9 @@ class AirRideWebServer {
     void loadLeakSnapshot();
     void saveLeakSnapshot();
     void updateLeakSnapshot();
+    void handleTankMaint();
+    void loadTankMaintFromEEPROM();
+    void saveTankMaintToEEPROM(uint32_t epoch);
     void handleNotFound();
 };
 

@@ -163,6 +163,10 @@
 #define EEPROM_ADDR_LEAK_TIME       73  // Snapshot epoch (uint32_t, 4 bytes)
 #define EEPROM_ADDR_LEAK_PRESSURES  77  // FL,FR,RL,RR,Tank (5 floats, 20 bytes)
 
+// Tank maintenance timer EEPROM (5 bytes: flag + last service epoch)
+#define EEPROM_ADDR_TANK_MAINT_FLAG  97  // Valid flag (1 byte, 0xBB)
+#define EEPROM_ADDR_TANK_MAINT_EPOCH 98  // Last service epoch (uint32_t, 4 bytes)
+
 // ============================================
 // LEAK MONITOR SETTINGS
 // ============================================
@@ -178,6 +182,15 @@
 #define LEAK_WARN_RATE_PSI_HR   0.1         // Yellow: AND rate exceeds (PSI/hr)
 #define LEAK_ALERT_DROP_PSI     5.0         // Red: total PSI drop
 #define LEAK_ALERT_RATE_PSI_HR  0.25        // Red: AND rate exceeds (PSI/hr)
+
+// ============================================
+// TANK MAINTENANCE TIMER SETTINGS
+// ============================================
+// 3-month (90-day) service interval for tank inspection/drain.
+// Persisted in EEPROM; controllable via /tank endpoint.
+
+#define TANK_MAINT_VALID        0xBB        // EEPROM flag value
+#define TANK_MAINT_INTERVAL_SEC 7776000UL   // 90 days in seconds (90 * 86400)
 
 // ============================================
 // RELAY CONFIGURATION

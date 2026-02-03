@@ -119,6 +119,7 @@ function parseEsp32Status(data: any) {
     presets: data.presets ? data.presets.map((p: number[]) => ({
       FL: p[0], FR: p[1], RL: p[2], RR: p[3]
     })) : undefined,
+    tankMaint: data.tankMaint || undefined,
   };
 }
 
@@ -270,6 +271,24 @@ export const airService = {
   async resetLeakMonitor() {
     try {
       await fetch(`${BASE_URL}/leak?reset=1`, { signal: AbortSignal.timeout(1000) });
+    } catch (e) {
+      // Offline: no-op
+    }
+  },
+
+  // Reset tank maintenance timer (mark service complete): GET /tank?reset=1
+  async resetTankMaint() {
+    try {
+      await fetch(`${BASE_URL}/tank?reset=1`, { signal: AbortSignal.timeout(1000) });
+    } catch (e) {
+      // Offline: no-op
+    }
+  },
+
+  // Set tank maintenance epoch (debug): GET /tank?set=<epoch>
+  async setTankMaintEpoch(epoch: number) {
+    try {
+      await fetch(`${BASE_URL}/tank?set=${epoch}`, { signal: AbortSignal.timeout(1000) });
     } catch (e) {
       // Offline: no-op
     }

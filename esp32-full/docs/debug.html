@@ -174,6 +174,20 @@
   <div style="font-size:11px;color:#f44336;margin-top:2px" id="pump-maint"></div>
 </div>
 
+<!-- Tank Maintenance -->
+<div class="section">
+  <h2>Tank Maintenance Timer</h2>
+  <div style="font-size:12px;margin-bottom:4px">
+    <span>Status: <strong id="tank-maint-status" style="color:#888">--</strong></span>
+    <span style="margin-left:12px">Days Remaining: <strong id="tank-maint-days" style="color:#888">--</strong></span>
+  </div>
+  <div style="font-size:11px;color:#666;margin-bottom:4px" id="tank-maint-last">Last service: --</div>
+  <div class="btn-row">
+    <button class="memory" onclick="resetTankMaint()">Service Complete (Reset)</button>
+    <button class="preset" style="background:#6a1b9a;font-size:11px" onclick="setTankMaintDate()">Set Custom Date</button>
+  </div>
+</div>
+
 <!-- Raw Endpoints -->
 <div class="section">
   <h2>Raw Endpoint Test</h2>
@@ -194,7 +208,7 @@ const BAGS = ['FL', 'FR', 'RL', 'RR'];
 const BAG_LABELS = { FL: 'Front Left', FR: 'Front Right', RL: 'Rear Left', RR: 'Rear Right' };
 let polling = false;
 let pollTimer = null;
-let state = { bags: [0,0,0,0], targets: [0,0,0,0], tank: 0, timeouts: [false,false,false,false], level: 0, lockout: false, pumpEnabled: true, demo: false, pump: '', runtime: '', presets: null, maint: null, maintOverdue: false };
+let state = { bags: [0,0,0,0], targets: [0,0,0,0], tank: 0, timeouts: [false,false,false,false], level: 0, lockout: false, pumpEnabled: true, demo: false, pump: '', runtime: '', presets: null, maint: null, maintOverdue: false, tankMaint: null };
 
 function ev(e) { e.preventDefault(); }
 function getBase() { return document.getElementById('base-url').value.replace(/\/+$/, ''); }
@@ -317,6 +331,37 @@ function updateUI() {
     document.getElementById('preset-values').textContent = lines.join(' | ');
   }
 
+  // Tank Maintenance
+  const tm = state.tankMaint;
+  const tmStatus = document.getElementById('tank-maint-status');
+  const tmDays = document.getElementById('tank-maint-days');
+  const tmLast = document.getElementById('tank-maint-last');
+  if (tm && tm.valid) {
+    if (!tm.timeSynced) {
+      tmStatus.textContent = 'WAITING FOR TIME SYNC';
+      tmStatus.style.color = '#888';
+      tmDays.textContent = '--';
+    } else if (tm.due) {
+      tmStatus.textContent = 'SERVICE DUE';
+      tmStatus.style.color = '#f44336';
+      tmDays.textContent = tm.daysRemaining <= 0 ? `${Math.abs(tm.daysRemaining)} days overdue` : `${tm.daysRemaining}`;
+      tmDays.style.color = '#f44336';
+    } else {
+      tmStatus.textContent = 'OK';
+      tmStatus.style.color = '#4caf50';
+      tmDays.textContent = String(tm.daysRemaining);
+      tmDays.style.color = '#4caf50';
+    }
+    if (tm.lastService) {
+      tmLast.textContent = 'Last service: ' + new Date(tm.lastService * 1000).toLocaleString();
+    }
+  } else {
+    tmStatus.textContent = 'NOT SET';
+    tmStatus.style.color = '#888';
+    tmDays.textContent = '--';
+    tmLast.textContent = 'Last service: --';
+  }
+
   document.getElementById('last-update').textContent = 'Updated: ' + new Date().toLocaleTimeString();
 }
 
@@ -336,6 +381,7 @@ async function pollNow() {
     state.presets = data.presets || null;
     state.maint = data.maint || null;
     state.maintOverdue = data.maintOverdue || false;
+    state.tankMaint = data.tankMaint || null;
     document.getElementById('conn-dot').className = 'dot ok';
     document.getElementById('conn-text').textContent = 'Connected';
   } else {
@@ -393,6 +439,17 @@ async function togglePump() { await api('/po'); if (!polling) pollNow(); }
 // Demo mode
 async function toggleDemo() { await api('/demo'); if (!polling) pollNow(); }
 
+// Tank maintenance
+async function resetTankMaint() { await api('/tank?reset=1'); if (!polling) pollNow(); }
+async function setTankMaintDate() {
+  const dateStr = prompt('Enter service date (YYYY-MM-DD):', new Date().toISOString().slice(0, 10));
+  if (!dateStr) return;
+  const epoch = Math.floor(new Date(dateStr).getTime() / 1000);
+  if (isNaN(epoch) || epoch < 1600000000) { alert('Invalid date'); return; }
+  await api(`/tank?set=${epoch}`);
+  if (!polling) pollNow();
+}
+
 // Raw endpoint
 async function rawFetch() {
   const path = document.getElementById('raw-path').value;
@@ -401,7 +458,7 @@ async function rawFetch() {
 }
 
 // Sync browser time to ESP32
-fetch(BASE + '/time?t=' + Math.floor(Date.now() / 1000)).catch(() => {});
+fetch(getBase() + '/time?t=' + Math.floor(Date.now() / 1000)).catch(() => {});
 
 // Build initial UI
 updateUI();

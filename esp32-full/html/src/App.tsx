@@ -5,14 +5,14 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Activity, Power, ChevronUp, ChevronDown } from 'lucide-react';
+import { Activity, Power, ChevronUp, ChevronDown, Wrench } from 'lucide-react';
 import { Gauge } from './components/Gauge';
 import { HorizontalGauge } from './components/HorizontalGauge';
 import { ControlButton } from './components/ControlButton';
 import { LevelControl } from './components/LevelControl';
 import { ImpalaSSLogo } from './components/ImpalaSSLogo';
 import { airService } from './services/airService';
-import { SystemState, Corner, LeakStatus } from './types';
+import { SystemState, Corner, LeakStatus, TankMaintStatus } from './types';
 
 function formatElapsed(seconds: number): string {
   if (seconds < 60) return '<1m';
@@ -40,6 +40,7 @@ export default function App() {
 
   // Long-press preset save state
   const [saveModal, setSaveModal] = useState<{ presetIndex: number; presetName: string; saved: boolean } | null>(null);
+  const [tankMaintModalOpen, setTankMaintModalOpen] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -280,6 +281,19 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          {/* Tank Maintenance Due Banner */}
+          {state.tankMaint?.due && (
+            <button
+              onClick={() => setTankMaintModalOpen(true)}
+              onTouchEnd={(e) => { e.preventDefault(); setTankMaintModalOpen(true); }}
+              className="w-full rounded-xl p-2 sm:p-3 bg-gradient-to-r from-red-700 via-red-600 to-red-700 border-2 border-red-900/60 shadow-[0_4px_12px_rgba(185,28,28,0.5)] flex items-center justify-center gap-2 sm:gap-3 animate-pulse shrink-0"
+            >
+              <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+              <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-white">Tank Service Due</span>
+              <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+            </button>
+          )}
         </section>
 
         {/* Unit 2: Presets & Level Mode - Below the fold */}
@@ -450,6 +464,62 @@ export default function App() {
                   </p>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tank Maintenance Modal */}
+      {tankMaintModalOpen && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="engine-turned rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-4 border-black/80 shadow-[0_20px_60px_rgba(0,0,0,0.9)] mx-6 max-w-sm text-center relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-black/20 pointer-events-none rounded-2xl sm:rounded-3xl" />
+            <div className="relative z-10">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.7)] mx-auto mb-3 sm:mb-4 flex items-center justify-center">
+                <Wrench className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <p className="text-sm sm:text-base font-black text-black/70 uppercase tracking-widest">Tank Service Due</p>
+
+              {/* Days info */}
+              <div className="mt-2 sm:mt-3">
+                {state.tankMaint?.daysRemaining !== undefined && state.tankMaint.daysRemaining <= 0 ? (
+                  <p className="text-lg sm:text-xl font-black text-red-700">
+                    {Math.abs(state.tankMaint.daysRemaining)} days overdue
+                  </p>
+                ) : (
+                  <p className="text-lg sm:text-xl font-black text-amber-700">
+                    {state.tankMaint?.daysRemaining ?? '?'} days remaining
+                  </p>
+                )}
+              </div>
+
+              {/* Last service date */}
+              {state.tankMaint?.lastService && (
+                <p className="text-[10px] sm:text-xs text-black/40 mt-1.5 font-bold uppercase tracking-wider">
+                  Last service: {new Date(state.tankMaint.lastService * 1000).toLocaleDateString()}
+                </p>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-3 mt-4 sm:mt-6 justify-center">
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setTankMaintModalOpen(false)}
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-b from-white via-impala-chrome to-impala-silver border-2 border-black/40 shadow-[0_2px_4px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.8)] active:shadow-inner"
+                >
+                  <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.15em] text-black/50">Dismiss</span>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    airService.resetTankMaint();
+                    setTankMaintModalOpen(false);
+                  }}
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-b from-green-400 via-green-500 to-green-600 border-2 border-green-800/40 shadow-[0_2px_4px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)] active:shadow-inner"
+                >
+                  <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.15em] text-white">Service Complete</span>
+                </motion.button>
+              </div>
             </div>
           </div>
         </div>

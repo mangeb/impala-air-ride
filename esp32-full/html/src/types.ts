@@ -23,6 +23,7 @@ export interface SystemState {
   pumpEnabled?: boolean;
   level?: number;  // 0=off, 1=front, 2=rear, 3=all
   presets?: TargetData[];
+  tankMaint?: TankMaintStatus;
 }
 
 export interface LeakStatus {
@@ -32,4 +33,12 @@ export interface LeakStatus {
   current?: number[];    // [FL, FR, RL, RR, Tank]
   rates?: number[];      // PSI/hr drop rate (positive = losing pressure)
   status?: number[];     // 0=ok, 1=warn, 2=leak
+}
+
+export interface TankMaintStatus {
+  valid: boolean;
+  lastService?: number;    // epoch seconds
+  due?: boolean;           // true if overdue
+  daysRemaining?: number;  // positive = days left, negative = days overdue
+  timeSynced?: boolean;    // whether ESP32 has time sync
 }
