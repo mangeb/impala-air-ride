@@ -158,6 +158,27 @@
 #define EEPROM_ADDR_PRESET3     52     // Custom preset 3 (16 bytes: 4x float)
 #define EEPROM_ADDR_PUMP_HOURS  68     // Pump runtime hours (float)
 
+// Leak monitor EEPROM (25 bytes: flag + timestamp + 5 pressures)
+#define EEPROM_ADDR_LEAK_FLAG       72  // Valid flag (1 byte, 0xAA)
+#define EEPROM_ADDR_LEAK_TIME       73  // Snapshot epoch (uint32_t, 4 bytes)
+#define EEPROM_ADDR_LEAK_PRESSURES  77  // FL,FR,RL,RR,Tank (5 floats, 20 bytes)
+
+// ============================================
+// LEAK MONITOR SETTINGS
+// ============================================
+// Detects slow leaks by comparing a saved pressure snapshot
+// against current readings after the car has been sitting.
+// Thresholds use both total drop AND rate to distinguish
+// real leaks from temperature-related pressure changes (~1-2 PSI).
+
+#define LEAK_SNAPSHOT_VALID     0xAA        // EEPROM flag value
+#define LEAK_SNAPSHOT_INTERVAL  600000      // Save snapshot every 10 min (ms)
+#define LEAK_MIN_SNAPSHOT_PSI   5.0         // Ignore sensors below this PSI
+#define LEAK_WARN_DROP_PSI      2.0         // Yellow: total PSI drop
+#define LEAK_WARN_RATE_PSI_HR   0.1         // Yellow: AND rate exceeds (PSI/hr)
+#define LEAK_ALERT_DROP_PSI     5.0         // Red: total PSI drop
+#define LEAK_ALERT_RATE_PSI_HR  0.25        // Red: AND rate exceeds (PSI/hr)
+
 // ============================================
 // RELAY CONFIGURATION
 // ============================================

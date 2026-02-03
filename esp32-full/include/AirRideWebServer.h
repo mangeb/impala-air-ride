@@ -82,6 +82,12 @@ class AirRideWebServer {
     // Time sync from browser
     bool timeSynced;
 
+    // Leak monitor
+    bool leakSnapshotValid;
+    uint32_t leakSnapshotEpoch;
+    float leakSnapshotPressures[NUM_BAGS + 1]; // FL, FR, RL, RR, Tank
+    unsigned long lastLeakSnapshotSave;
+
     // Mutable presets (loaded from EEPROM, fall back to DEFAULT_PRESETS)
     float currentPresets[NUM_PRESETS][4]; // [preset][FL, FR, RL, RR]
     void loadPresetsFromEEPROM();
@@ -98,6 +104,10 @@ class AirRideWebServer {
     void handleLevel();
     void handlePumpOverride();
     void handleTimeSync();
+    void handleLeakStatus();
+    void loadLeakSnapshot();
+    void saveLeakSnapshot();
+    void updateLeakSnapshot();
     void handleNotFound();
 };
 

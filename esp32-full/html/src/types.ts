@@ -24,3 +24,12 @@ export interface SystemState {
   level?: number;  // 0=off, 1=front, 2=rear, 3=all
   presets?: TargetData[];
 }
+
+export interface LeakStatus {
+  valid: boolean;
+  elapsed?: number;      // seconds since snapshot
+  snapshot?: number[];   // [FL, FR, RL, RR, Tank]
+  current?: number[];    // [FL, FR, RL, RR, Tank]
+  rates?: number[];      // PSI/hr drop rate (positive = losing pressure)
+  status?: number[];     // 0=ok, 1=warn, 2=leak
+}

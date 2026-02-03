@@ -12,7 +12,19 @@ import { ControlButton } from './components/ControlButton';
 import { LevelControl } from './components/LevelControl';
 import { ImpalaSSLogo } from './components/ImpalaSSLogo';
 import { airService } from './services/airService';
-import { SystemState, Corner } from './types';
+import { SystemState, Corner, LeakStatus } from './types';
+
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return '<1m';
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+
+const LEAK_SENSOR_NAMES = ['FL', 'FR', 'RL', 'RR', 'Tank'];
 
 export default function App() {
   const [state, setState] = useState<SystemState>({
@@ -79,9 +91,23 @@ export default function App() {
     }
   }, [saveModal, clearLongPress, applyPreset]);
 
+  // Leak monitor state
+  const [leakStatus, setLeakStatus] = useState<LeakStatus>({ valid: false });
+
   // Sync browser time to ESP32 on connect
   useEffect(() => {
     airService.syncTime();
+  }, []);
+
+  // Poll leak status (every 5 seconds — leak data changes slowly)
+  useEffect(() => {
+    const fetchLeak = async () => {
+      const status = await airService.getLeakStatus();
+      setLeakStatus(status);
+    };
+    fetchLeak();
+    const interval = setInterval(fetchLeak, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Poll for status (400ms matches ESP32 web server interval)
@@ -305,6 +331,95 @@ export default function App() {
             level={state.level ?? 0}
             onSetLevel={(mode) => airService.setLevelMode(mode)}
           />
+        </section>
+
+        {/* Unit 3: Leak Monitor */}
+        <section className="snap-start min-h-dvh p-3 sm:p-4 flex flex-col gap-3 sm:gap-6">
+          <div className="engine-turned rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-8 border-4 border-black/90 shadow-[0_15px_40px_rgba(0,0,0,0.9)] relative overflow-hidden flex-1 flex flex-col">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-black/20 pointer-events-none" />
+
+            <div className="relative z-10 h-full flex flex-col">
+              {/* Chrome Badge Bar */}
+              <div className="flex items-center justify-between mb-4 sm:mb-6 -mx-4 -mt-4 sm:-mx-8 sm:-mt-8 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-b from-impala-chrome to-impala-silver border-b-4 border-black/60 rounded-t-[calc(2rem-4px)] sm:rounded-t-[calc(2.5rem-4px)] shadow-md">
+                <span className="text-[8px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-black/60">Leak Monitor</span>
+                {leakStatus.valid && (
+                  <span className="text-[8px] sm:text-[10px] font-bold text-black/40 tracking-wider">
+                    {formatElapsed(leakStatus.elapsed || 0)} ago
+                  </span>
+                )}
+              </div>
+
+              {!leakStatus.valid ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-black/10 flex items-center justify-center">
+                    <span className="text-2xl sm:text-3xl opacity-40">💧</span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-black/40 font-bold uppercase tracking-widest">No snapshot data yet</p>
+                  <p className="text-[8px] sm:text-[10px] text-black/30 font-medium text-center max-w-[200px]">
+                    A pressure snapshot will be saved automatically while the system runs
+                  </p>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col">
+                  {/* Column headers */}
+                  <div className="flex items-center gap-2 sm:gap-4 px-1 sm:px-2 mb-1.5 sm:mb-2">
+                    <div className="w-3 sm:w-4" />
+                    <span className="w-8 sm:w-10" />
+                    <div className="flex-1 grid grid-cols-3 gap-1 text-center">
+                      <span className="text-[7px] sm:text-[8px] font-black text-black/30 uppercase tracking-wider">Snap</span>
+                      <span className="text-[7px] sm:text-[8px] font-black text-black/30 uppercase tracking-wider">Now</span>
+                      <span className="text-[7px] sm:text-[8px] font-black text-black/30 uppercase tracking-wider">Rate</span>
+                    </div>
+                  </div>
+
+                  {/* Sensor rows */}
+                  <div className="space-y-1.5 sm:space-y-2 flex-1">
+                    {LEAK_SENSOR_NAMES.map((name, i) => {
+                      const sensorStatus = leakStatus.status?.[i] ?? 0;
+                      const snapshot = leakStatus.snapshot?.[i] ?? 0;
+                      const current = leakStatus.current?.[i] ?? 0;
+                      const rate = leakStatus.rates?.[i] ?? 0;
+                      const statusColor = sensorStatus === 2
+                        ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                        : sensorStatus === 1
+                          ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                          : 'bg-green-500';
+                      const rateColor = sensorStatus === 2
+                        ? 'text-red-700'
+                        : sensorStatus === 1
+                          ? 'text-amber-700'
+                          : 'text-black/60';
+
+                      return (
+                        <div key={name} className="flex items-center gap-2 sm:gap-4 bg-black/[0.07] rounded-xl p-2 sm:p-3 border border-black/[0.06]">
+                          <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${statusColor} shrink-0`} />
+                          <span className="text-[10px] sm:text-xs font-black text-black/50 uppercase tracking-wider w-8 sm:w-10 shrink-0">{name}</span>
+                          <div className="flex-1 grid grid-cols-3 gap-1 text-center">
+                            <div className="text-[11px] sm:text-sm font-bold text-black/60">{snapshot.toFixed(0)}</div>
+                            <div className="text-[11px] sm:text-sm font-bold text-black/60">{current.toFixed(0)}</div>
+                            <div className={`text-[11px] sm:text-sm font-bold ${rateColor}`}>
+                              {snapshot < 5 ? '—' : rate > 0.005 ? `-${rate.toFixed(1)}` : '0'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Reset Button */}
+              <div className="flex justify-center mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-black/10">
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => { airService.resetLeakMonitor(); setLeakStatus({ valid: false }); }}
+                  className="px-5 sm:px-6 py-1.5 sm:py-2 rounded-xl bg-gradient-to-b from-white via-impala-chrome to-impala-silver border-2 border-black/40 shadow-[0_2px_4px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.8)] active:shadow-inner"
+                >
+                  <span className="text-[7px] sm:text-[9px] font-black uppercase tracking-[0.15em] text-black/50">Reset Snapshot</span>
+                </motion.button>
+              </div>
+            </div>
+          </div>
         </section>
       </main>
 
