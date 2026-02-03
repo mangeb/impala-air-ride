@@ -94,6 +94,7 @@ class AirRideWebServer {
     void handleSavePreset(); // Save current pressures to preset: /sp?n=<preset>&fl=&fr=&rl=&rr=
     void handleLevel();
     void handlePumpOverride();
+    void handleDemoToggle();
     void handleNotFound();
 };
 
