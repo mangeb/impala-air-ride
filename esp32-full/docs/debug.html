@@ -74,6 +74,20 @@
   #log .res { color: #81c784; }
   #log .err { color: #ef5350; }
   #raw { background: #0a0a0a; border: 1px solid #333; border-radius: 4px; padding: 6px; font-size: 11px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; color: #666; margin-top: 4px; }
+
+  .cal-card { background: #222; border: 1px solid #333; border-radius: 6px; padding: 8px; margin-bottom: 6px; }
+  .cal-card .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .cal-card .cal-name { font-weight: bold; color: #ffd700; font-size: 13px; }
+  .cal-card .cal-badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+  .cal-badge.factory { background: #333; color: #888; }
+  .cal-badge.calibrated { background: #2e7d32; color: #fff; }
+  .cal-card .cal-values { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+  .cal-card .cal-psi { font-size: 16px; font-weight: bold; color: #fff; }
+  .cal-row { display: flex; gap: 4px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+  .cal-row input { width: 60px; background: #111; border: 1px solid #444; color: #fff; padding: 3px 4px; border-radius: 3px; font-family: inherit; font-size: 12px; text-align: center; }
+  .cal-row button { padding: 3px 8px; font-size: 11px; border: none; border-radius: 3px; cursor: pointer; font-family: inherit; color: #fff; }
+  .cal-row button:active { opacity: 0.7; }
+  .cal-row .cal-label { font-size: 11px; color: #888; min-width: 30px; }
 </style>
 </head>
 <body>
@@ -207,6 +221,24 @@
     <button style="background:#4caf50;color:#fff;font-weight:bold" onclick="stopSimLeak()">■ Stop Leak</button>
   </div>
   <div style="font-size:11px;color:#666;margin-top:4px">Aggressive leak ~1.5 PSI/sec. Requires demo mode ON. Use to test leak monitor &amp; UI alerts.</div>
+</div>
+
+<!-- Sensor Calibration -->
+<div class="section">
+  <h2>Sensor Calibration</h2>
+  <div id="cal-status" style="font-size:12px;margin-bottom:6px;color:#888">Loading calibration...</div>
+  <div id="cal-sensors"></div>
+  <div style="margin-top:8px">
+    <div class="btn-row">
+      <button style="background:#c62828;color:#fff;font-weight:bold" onclick="calResetAll()">Reset All to Factory</button>
+      <button style="background:#1565c0;color:#fff" onclick="calRefresh()">Refresh</button>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#555;margin-top:6px">
+    <strong>Two-point calibration:</strong> 1) Dump bags to 0 PSI, click "Set Zero". 2) Fill to known pressure (use trusted gauge), enter reference PSI, click "Set Span".<br>
+    <strong>Nudge:</strong> Fine-tune offset by &plusmn;0.5 PSI while comparing to a reference gauge.<br>
+    <strong>Ref Resistor:</strong> Enter measured resistance of your voltage divider resistor (default 100&Omega;).
+  </div>
 </div>
 
 <!-- Raw Endpoints -->
@@ -502,8 +534,128 @@ async function rawFetch() {
 // Sync browser time to ESP32
 fetch(getBase() + '/time?t=' + Math.floor(Date.now() / 1000)).catch(() => {});
 
+// ============================================
+// SENSOR CALIBRATION
+// ============================================
+
+let calData = null;
+
+async function calRefresh() {
+  const data = await api('/cal');
+  if (data && data.sensors) {
+    calData = data.sensors;
+    renderCalibration();
+  } else {
+    document.getElementById('cal-status').textContent = 'Failed to load calibration data';
+    document.getElementById('cal-status').style.color = '#f44336';
+  }
+}
+
+function renderCalibration() {
+  if (!calData) return;
+  const container = document.getElementById('cal-sensors');
+  container.innerHTML = '';
+
+  const anyCalibrated = calData.some(s => s.calibrated);
+  document.getElementById('cal-status').textContent = anyCalibrated
+    ? 'Custom calibration active'
+    : 'All sensors using factory defaults';
+  document.getElementById('cal-status').style.color = anyCalibrated ? '#4caf50' : '#888';
+
+  calData.forEach((sensor, idx) => {
+    const card = document.createElement('div');
+    card.className = 'cal-card';
+    card.innerHTML = `
+      <div class="cal-header">
+        <span class="cal-name">${sensor.name}</span>
+        <span class="cal-badge ${sensor.calibrated ? 'calibrated' : 'factory'}">${sensor.calibrated ? 'CALIBRATED' : 'FACTORY'}</span>
+        <span class="cal-psi">${sensor.currentPsi.toFixed(1)} PSI</span>
+      </div>
+      <div class="cal-values">
+        Offset: ${sensor.offset.toFixed(3)} PSI | Gain: ${sensor.gain.toFixed(4)} | Ref R: ${sensor.refResistor.toFixed(1)}&Omega;
+      </div>
+      <div class="cal-row">
+        <button style="background:#2e7d32" onclick="calZero(${idx})">Set Zero</button>
+        <span class="cal-label">Span:</span>
+        <input type="number" id="cal-span-${idx}" min="1" max="150" value="80" step="1" placeholder="Ref PSI">
+        <button style="background:#1565c0" onclick="calSpan(${idx})">Set Span</button>
+        <button style="background:#555" onclick="calNudge(${idx}, -0.5)">-0.5</button>
+        <button style="background:#555" onclick="calNudge(${idx}, 0.5)">+0.5</button>
+      </div>
+      <div class="cal-row">
+        <span class="cal-label">Ref R:</span>
+        <input type="number" id="cal-ref-${idx}" min="80" max="120" value="${sensor.refResistor.toFixed(1)}" step="0.1" placeholder="Ohms">
+        <button style="background:#6a1b9a" onclick="calSetRef(${idx})">Set</button>
+        <button style="background:#c62828" onclick="calReset(${idx})">Reset</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+async function calZero(sensorIdx) {
+  if (!calData) return;
+  const currentPsi = calData[sensorIdx].currentPsi;
+  const gain = calData[sensorIdx].gain;
+  // To zero: we need the raw PSI (before calibration)
+  // rawPsi = (currentPsi - offset) / gain
+  const rawPsi = (currentPsi - calData[sensorIdx].offset) / gain;
+  if (!confirm(`Set Zero for ${calData[sensorIdx].name}?\nCurrent reading: ${currentPsi.toFixed(1)} PSI\nThis sensor should read 0 PSI right now.`)) return;
+  await api(`/cal?s=${sensorIdx}&zero=${rawPsi.toFixed(3)}`);
+  await calRefresh();
+  if (!polling) pollNow();
+}
+
+async function calSpan(sensorIdx) {
+  if (!calData) return;
+  const refPsi = parseFloat(document.getElementById(`cal-span-${sensorIdx}`).value);
+  if (isNaN(refPsi) || refPsi <= 0) { alert('Enter a valid reference PSI'); return; }
+  const sensor = calData[sensorIdx];
+  // Get raw PSI (before calibration)
+  const rawPsi = (sensor.currentPsi - sensor.offset) / sensor.gain;
+  if (rawPsi < 0.1) { alert('Current pressure too low for span calibration. Fill to reference pressure first.'); return; }
+  if (!confirm(`Set Span for ${sensor.name}?\nCurrent raw: ${rawPsi.toFixed(1)} PSI\nReference gauge: ${refPsi.toFixed(1)} PSI`)) return;
+  await api(`/cal?s=${sensorIdx}&span_raw=${rawPsi.toFixed(3)}&span_ref=${refPsi.toFixed(3)}`);
+  await calRefresh();
+  if (!polling) pollNow();
+}
+
+async function calNudge(sensorIdx, delta) {
+  if (!calData) return;
+  const newOffset = calData[sensorIdx].offset + delta;
+  await api(`/cal?s=${sensorIdx}&o=${newOffset.toFixed(3)}`);
+  await calRefresh();
+  if (!polling) pollNow();
+}
+
+async function calSetRef(sensorIdx) {
+  const refR = parseFloat(document.getElementById(`cal-ref-${sensorIdx}`).value);
+  if (isNaN(refR) || refR < 80 || refR > 120) { alert('Enter a valid resistance (80-120 ohms)'); return; }
+  await api(`/cal?s=${sensorIdx}&r=${refR.toFixed(1)}`);
+  await calRefresh();
+  if (!polling) pollNow();
+}
+
+async function calReset(sensorIdx) {
+  if (!calData) return;
+  if (!confirm(`Reset ${calData[sensorIdx].name} to factory defaults?`)) return;
+  await api(`/calreset?s=${sensorIdx}`);
+  await calRefresh();
+  if (!polling) pollNow();
+}
+
+async function calResetAll() {
+  if (!confirm('Reset ALL sensors to factory calibration defaults?')) return;
+  await api('/calreset');
+  await calRefresh();
+  if (!polling) pollNow();
+}
+
 // Build initial UI
 updateUI();
+
+// Load calibration on page load
+calRefresh();
 </script>
 </body>
 </html>

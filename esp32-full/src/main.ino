@@ -84,6 +84,10 @@ float tankPressureBuffer[PRESSURE_SAMPLES];
 int tankBufferIndex = 0;
 bool tankBufferFilled = false;
 
+// Tank sensor calibration (sensor index 0)
+SensorCalibration tankCalibration = { 0.0, 1.0, REFERENCE_RESISTOR };
+bool tankCalibrated = false;
+
 // ============================================
 // SETUP
 // ============================================
@@ -291,20 +295,24 @@ float readTankPressure() {
     float voltage = (rawValue / ADC_RESOLUTION) * ADC_REFERENCE_VOLTAGE;
 
     // Convert voltage to resistance (VDO resistance-based sensor)
+    // Uses per-sensor calibrated reference resistor value
     float resistance;
     if (voltage >= ADC_REFERENCE_VOLTAGE - 0.01) {
         resistance = SENSOR_MAX_OHMS;
     } else if (voltage <= 0.01) {
         resistance = SENSOR_MIN_OHMS;
     } else {
-        resistance = REFERENCE_RESISTOR * voltage / (ADC_REFERENCE_VOLTAGE - voltage);
+        resistance = tankCalibration.refResistor * voltage / (ADC_REFERENCE_VOLTAGE - voltage);
     }
 
     // Clamp and convert resistance to PSI
     if (resistance < SENSOR_MIN_OHMS) resistance = SENSOR_MIN_OHMS;
     if (resistance > SENSOR_MAX_OHMS) resistance = SENSOR_MAX_OHMS;
 
-    return ((resistance - SENSOR_MIN_OHMS) / (SENSOR_MAX_OHMS - SENSOR_MIN_OHMS)) * SENSOR_MAX_PSI;
+    float rawPsi = ((resistance - SENSOR_MIN_OHMS) / (SENSOR_MAX_OHMS - SENSOR_MIN_OHMS)) * SENSOR_MAX_PSI;
+
+    // Apply calibration: correctedPsi = (rawPsi * gain) + offset
+    return (rawPsi * tankCalibration.gain) + tankCalibration.offset;
 }
 
 float readTankPressureSmoothed() {

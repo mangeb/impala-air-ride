@@ -12,11 +12,16 @@ AirBag::AirBag(uint8_t pressurePin, uint8_t inflatePin, uint8_t deflatePin, cons
       solenoidTimedOut(false),
       timeoutCooldownStart(0),
       bufferIndex(0),
-      bufferFilled(false) {
+      bufferFilled(false),
+      calibrated(false) {
     // Initialize pressure buffer
     for (int i = 0; i < PRESSURE_SAMPLES; i++) {
         pressureBuffer[i] = 0.0;
     }
+    // Default calibration (no correction)
+    calibration.offset = 0.0;
+    calibration.gain = 1.0;
+    calibration.refResistor = REFERENCE_RESISTOR;
 }
 
 void AirBag::begin() {
@@ -108,8 +113,28 @@ float AirBag::readPressure() {
     // Convert voltage to resistance using voltage divider formula
     float resistance = resistanceFromVoltage(voltage);
 
-    // Convert resistance to PSI
+    // Convert resistance to PSI, then apply calibration
+    float rawPsi = resistanceToPsi(resistance);
+    return applyCalibration(rawPsi);
+}
+
+float AirBag::readRawPressure() {
+    if (demoMode) {
+        return currentPressure; // In demo mode, raw = current
+    }
+    int rawValue = analogRead(pressureSensorPin);
+    float voltage = (rawValue / ADC_RESOLUTION) * ADC_REFERENCE_VOLTAGE;
+    float resistance = resistanceFromVoltage(voltage);
     return resistanceToPsi(resistance);
+}
+
+float AirBag::applyCalibration(float rawPsi) {
+    return (rawPsi * calibration.gain) + calibration.offset;
+}
+
+void AirBag::setCalibration(const SensorCalibration& cal) {
+    calibration = cal;
+    calibrated = (cal.offset != 0.0 || cal.gain != 1.0 || cal.refResistor != REFERENCE_RESISTOR);
 }
 
 float AirBag::readPressureSmoothed() {
@@ -138,7 +163,8 @@ float AirBag::resistanceFromVoltage(float voltage) {
 
     // Voltage divider formula solved for R_sensor
     // R_sensor = R_ref * V_out / (V_in - V_out)
-    float resistance = REFERENCE_RESISTOR * voltage / (ADC_REFERENCE_VOLTAGE - voltage);
+    // Uses per-sensor calibrated reference resistor value
+    float resistance = calibration.refResistor * voltage / (ADC_REFERENCE_VOLTAGE - voltage);
 
     return resistance;
 }

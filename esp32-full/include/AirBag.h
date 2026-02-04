@@ -48,6 +48,12 @@ class AirBag {
 
     const char* getName() const { return bagName; }
 
+    // Calibration
+    void setCalibration(const SensorCalibration& cal);
+    const SensorCalibration& getCalibration() const { return calibration; }
+    bool isCalibrated() const { return calibrated; }
+    float readRawPressure();  // Uncalibrated reading (for calibration UI)
+
   private:
     uint8_t pressureSensorPin;
     uint8_t inflateSolenoidPin;
@@ -68,8 +74,13 @@ class AirBag {
     int bufferIndex;
     bool bufferFilled;
 
+    // Calibration data
+    SensorCalibration calibration;
+    bool calibrated;
+
     float resistanceFromVoltage(float voltage);
     float resistanceToPsi(float resistance);
+    float applyCalibration(float rawPsi);
     void checkSolenoidTimeout();
 };
 

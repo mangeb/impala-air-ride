@@ -121,6 +121,11 @@ class AirRideWebServer {
     void loadTankMaintFromEEPROM();
     void saveTankMaintToEEPROM(uint32_t epoch);
     void handleSimLeak();
+    void handleCalibration();
+    void handleCalibrationReset();
+    void loadCalibrationFromEEPROM();
+    void saveCalibrationToEEPROM();
+    bool validateCalibration(const SensorCalibration& cal);
     void handleNotFound();
 };
 
