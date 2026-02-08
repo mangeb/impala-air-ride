@@ -167,6 +167,35 @@
 #define EEPROM_ADDR_TANK_MAINT_FLAG  97  // Valid flag (1 byte, 0xBB)
 #define EEPROM_ADDR_TANK_MAINT_EPOCH 98  // Last service epoch (uint32_t, 4 bytes)
 
+// Sensor calibration EEPROM (1 flag + 5 sensors × 12 bytes = 61 bytes)
+// Per sensor: offset (float 4B) + gain (float 4B) + refResistor (float 4B)
+#define EEPROM_ADDR_CAL_FLAG         104 // Valid flag (1 byte, 0xCC)
+#define EEPROM_ADDR_CAL_DATA         105 // Start of calibration data
+// Sensor order: 0=Tank, 1=FL, 2=FR, 3=RL, 4=RR
+// Each sensor: 12 bytes (offset + gain + refResistor)
+// Total: 105 + 60 = 165 bytes (within 512 EEPROM)
+
+// ============================================
+// SENSOR CALIBRATION SETTINGS
+// ============================================
+// Two-point calibration: correctedPsi = (rawPsi * gain) + offset
+// Sanity bounds prevent bad calibration from bricking readings
+
+#define CAL_VALID_FLAG          0xCC
+#define CAL_NUM_SENSORS         5       // Tank + 4 bags
+#define CAL_GAIN_MIN            0.8     // Reject gain outside this range
+#define CAL_GAIN_MAX            1.2
+#define CAL_OFFSET_MIN          -10.0   // Reject offset outside this range (PSI)
+#define CAL_OFFSET_MAX          10.0
+#define CAL_REF_RESISTOR_MIN    80.0    // Reject ref resistor outside this range (ohms)
+#define CAL_REF_RESISTOR_MAX    120.0
+
+struct SensorCalibration {
+    float offset;       // PSI offset correction (added after gain)
+    float gain;         // PSI gain multiplier (applied first)
+    float refResistor;  // Actual reference resistor value (ohms)
+};
+
 // ============================================
 // LEAK MONITOR SETTINGS
 // ============================================
@@ -243,5 +272,9 @@ extern float simTankPressure;
 extern int simLeakTarget;           // Which sensor is leaking (-1=none)
 extern float simLeakRate;           // PSI per tick to subtract
 void setDemoMode(bool enabled);
+
+// Tank sensor calibration (defined in main.ino)
+extern SensorCalibration tankCalibration;
+extern bool tankCalibrated;
 
 #endif // CONFIG_H

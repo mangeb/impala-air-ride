@@ -48,6 +48,9 @@ void AirRideWebServer::begin() {
     // Load tank maintenance timer from EEPROM
     loadTankMaintFromEEPROM();
 
+    // Load sensor calibration from EEPROM
+    loadCalibrationFromEEPROM();
+
     // Setup routes
     server.on("/", HTTP_GET, [this]() { handleRoot(); });
     server.on("/debug", HTTP_GET, [this]() { handleDebug(); });
@@ -64,6 +67,8 @@ void AirRideWebServer::begin() {
     server.on("/leak", HTTP_GET, [this]() { handleLeakStatus(); });
     server.on("/tank", HTTP_GET, [this]() { handleTankMaint(); });
     server.on("/simleak", HTTP_GET, [this]() { handleSimLeak(); });
+    server.on("/cal", HTTP_GET, [this]() { handleCalibration(); });
+    server.on("/calreset", HTTP_GET, [this]() { handleCalibrationReset(); });
     server.onNotFound([this]() { handleNotFound(); });
 
     server.begin();
@@ -864,6 +869,256 @@ void AirRideWebServer::handleSimLeak() {
     json += "}";
 
     server.send(200, "application/json", json);
+}
+
+// ============================================
+// SENSOR CALIBRATION
+// ============================================
+
+bool AirRideWebServer::validateCalibration(const SensorCalibration& cal) {
+    if (isnan(cal.offset) || isinf(cal.offset)) return false;
+    if (isnan(cal.gain) || isinf(cal.gain)) return false;
+    if (isnan(cal.refResistor) || isinf(cal.refResistor)) return false;
+    if (cal.offset < CAL_OFFSET_MIN || cal.offset > CAL_OFFSET_MAX) return false;
+    if (cal.gain < CAL_GAIN_MIN || cal.gain > CAL_GAIN_MAX) return false;
+    if (cal.refResistor < CAL_REF_RESISTOR_MIN || cal.refResistor > CAL_REF_RESISTOR_MAX) return false;
+    return true;
+}
+
+void AirRideWebServer::loadCalibrationFromEEPROM() {
+    if (EEPROM.read(EEPROM_ADDR_CAL_FLAG) != CAL_VALID_FLAG) {
+        Serial.println("No calibration data in EEPROM — using defaults");
+        return;
+    }
+
+    Serial.print("Loading calibration from EEPROM: ");
+    const char* sensorNames[] = {"Tank", "FL", "FR", "RL", "RR"};
+
+    for (int i = 0; i < CAL_NUM_SENSORS; i++) {
+        int addr = EEPROM_ADDR_CAL_DATA + (i * 12);
+        SensorCalibration cal;
+        EEPROM.get(addr,     cal.offset);
+        EEPROM.get(addr + 4, cal.gain);
+        EEPROM.get(addr + 8, cal.refResistor);
+
+        if (!validateCalibration(cal)) {
+            Serial.print(sensorNames[i]);
+            Serial.print("=INVALID ");
+            continue;
+        }
+
+        if (i == 0) {
+            // Tank sensor
+            tankCalibration = cal;
+            tankCalibrated = (cal.offset != 0.0 || cal.gain != 1.0 || cal.refResistor != REFERENCE_RESISTOR);
+        } else {
+            // Bag sensor (index 1-4 maps to bags[0-3])
+            bags[i - 1].setCalibration(cal);
+        }
+
+        Serial.print(sensorNames[i]);
+        Serial.print("(o=");
+        Serial.print(cal.offset, 2);
+        Serial.print(" g=");
+        Serial.print(cal.gain, 3);
+        Serial.print(" r=");
+        Serial.print(cal.refResistor, 1);
+        Serial.print(") ");
+    }
+    Serial.println();
+}
+
+void AirRideWebServer::saveCalibrationToEEPROM() {
+    // Initialize EEPROM header if needed
+    if (EEPROM.read(EEPROM_ADDR_MAGIC) != EEPROM_MAGIC) {
+        EEPROM.write(EEPROM_ADDR_MAGIC, EEPROM_MAGIC);
+        EEPROM.write(EEPROM_ADDR_VERSION, EEPROM_VERSION);
+    }
+
+    EEPROM.write(EEPROM_ADDR_CAL_FLAG, CAL_VALID_FLAG);
+
+    // Save tank calibration (sensor 0)
+    int addr = EEPROM_ADDR_CAL_DATA;
+    EEPROM.put(addr,     tankCalibration.offset);
+    EEPROM.put(addr + 4, tankCalibration.gain);
+    EEPROM.put(addr + 8, tankCalibration.refResistor);
+
+    // Save bag calibrations (sensors 1-4)
+    for (int i = 0; i < NUM_BAGS; i++) {
+        addr = EEPROM_ADDR_CAL_DATA + ((i + 1) * 12);
+        const SensorCalibration& cal = bags[i].getCalibration();
+        EEPROM.put(addr,     cal.offset);
+        EEPROM.put(addr + 4, cal.gain);
+        EEPROM.put(addr + 8, cal.refResistor);
+    }
+
+    EEPROM.commit();
+    Serial.println("Calibration saved to EEPROM");
+}
+
+void AirRideWebServer::handleCalibration() {
+    // SET calibration: /cal?s=<sensor>&o=<offset>&g=<gain>&r=<refResistor>
+    // sensor: 0=tank, 1=FL, 2=FR, 3=RL, 4=RR
+    // All params optional except s (reads current if no set params)
+    // ZERO: /cal?s=<sensor>&zero=<rawPsi>  — sets offset so this rawPsi reads as 0
+    // SPAN: /cal?s=<sensor>&span_raw=<rawPsi>&span_ref=<actualPsi> — sets gain
+
+    if (server.hasArg("s")) {
+        int sensor = server.arg("s").toInt();
+        if (sensor < 0 || sensor >= CAL_NUM_SENSORS) {
+            server.send(400, "application/json", "{\"error\":\"Invalid sensor (0-4)\"}");
+            return;
+        }
+
+        // Get current calibration for this sensor
+        SensorCalibration cal;
+        if (sensor == 0) {
+            cal = tankCalibration;
+        } else {
+            cal = bags[sensor - 1].getCalibration();
+        }
+
+        bool changed = false;
+
+        // Zero calibration: offset = -rawPsi (so rawPsi reads as 0)
+        if (server.hasArg("zero")) {
+            float rawPsi = server.arg("zero").toFloat();
+            cal.offset = -rawPsi * cal.gain;
+            changed = true;
+            Serial.print("[CAL] Zero sensor ");
+            Serial.print(sensor);
+            Serial.print(" rawPsi=");
+            Serial.print(rawPsi, 2);
+            Serial.print(" -> offset=");
+            Serial.println(cal.offset, 2);
+        }
+
+        // Span calibration: given rawPsi and actual reference PSI, compute gain
+        if (server.hasArg("span_raw") && server.hasArg("span_ref")) {
+            float spanRaw = server.arg("span_raw").toFloat();
+            float spanRef = server.arg("span_ref").toFloat();
+            if (spanRaw > 0.1) {
+                cal.gain = spanRef / spanRaw;
+                // Recalculate offset if zero was set before
+                // offset stays as-is since it's applied after gain
+                changed = true;
+                Serial.print("[CAL] Span sensor ");
+                Serial.print(sensor);
+                Serial.print(" raw=");
+                Serial.print(spanRaw, 1);
+                Serial.print(" ref=");
+                Serial.print(spanRef, 1);
+                Serial.print(" -> gain=");
+                Serial.println(cal.gain, 4);
+            }
+        }
+
+        // Direct set: offset, gain, refResistor
+        if (server.hasArg("o")) {
+            cal.offset = server.arg("o").toFloat();
+            changed = true;
+        }
+        if (server.hasArg("g")) {
+            cal.gain = server.arg("g").toFloat();
+            changed = true;
+        }
+        if (server.hasArg("r")) {
+            cal.refResistor = server.arg("r").toFloat();
+            changed = true;
+        }
+
+        if (changed) {
+            if (!validateCalibration(cal)) {
+                server.send(400, "application/json", "{\"error\":\"Calibration out of bounds\"}");
+                return;
+            }
+
+            // Apply the calibration
+            if (sensor == 0) {
+                tankCalibration = cal;
+                tankCalibrated = (cal.offset != 0.0 || cal.gain != 1.0 || cal.refResistor != REFERENCE_RESISTOR);
+            } else {
+                bags[sensor - 1].setCalibration(cal);
+            }
+
+            // Save to EEPROM
+            saveCalibrationToEEPROM();
+        }
+    }
+
+    // Return current calibration state for all sensors
+    String json = "{\"sensors\":[";
+    const char* sensorNames[] = {"Tank", "FL", "FR", "RL", "RR"};
+
+    for (int i = 0; i < CAL_NUM_SENSORS; i++) {
+        if (i > 0) json += ",";
+
+        SensorCalibration cal;
+        bool isCal;
+        float currentPsi;
+        if (i == 0) {
+            cal = tankCalibration;
+            isCal = tankCalibrated;
+            currentPsi = *tankPressure;
+        } else {
+            cal = bags[i - 1].getCalibration();
+            isCal = bags[i - 1].isCalibrated();
+            currentPsi = bags[i - 1].getPressure();
+        }
+
+        json += "{\"name\":\"";
+        json += sensorNames[i];
+        json += "\",\"calibrated\":";
+        json += isCal ? "true" : "false";
+        json += ",\"offset\":";
+        json += String(cal.offset, 3);
+        json += ",\"gain\":";
+        json += String(cal.gain, 4);
+        json += ",\"refResistor\":";
+        json += String(cal.refResistor, 1);
+        json += ",\"currentPsi\":";
+        json += String(currentPsi, 1);
+        json += "}";
+    }
+
+    json += "]}";
+    server.send(200, "application/json", json);
+}
+
+void AirRideWebServer::handleCalibrationReset() {
+    // Reset all sensors to factory defaults
+    // Optional: /calreset?s=<sensor> to reset single sensor
+
+    if (server.hasArg("s")) {
+        int sensor = server.arg("s").toInt();
+        if (sensor < 0 || sensor >= CAL_NUM_SENSORS) {
+            server.send(400, "application/json", "{\"error\":\"Invalid sensor (0-4)\"}");
+            return;
+        }
+
+        SensorCalibration defaults = { 0.0, 1.0, REFERENCE_RESISTOR };
+        if (sensor == 0) {
+            tankCalibration = defaults;
+            tankCalibrated = false;
+        } else {
+            bags[sensor - 1].setCalibration(defaults);
+        }
+
+        Serial.print("[CAL] Reset sensor ");
+        Serial.println(sensor);
+    } else {
+        // Reset all
+        SensorCalibration defaults = { 0.0, 1.0, REFERENCE_RESISTOR };
+        tankCalibration = defaults;
+        tankCalibrated = false;
+        for (int i = 0; i < NUM_BAGS; i++) {
+            bags[i].setCalibration(defaults);
+        }
+        Serial.println("[CAL] All sensors reset to factory defaults");
+    }
+
+    saveCalibrationToEEPROM();
+    handleCalibration(); // Return updated state
 }
 
 void AirRideWebServer::handleNotFound() {
