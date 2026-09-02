@@ -8,7 +8,8 @@ Compressor::Compressor(uint8_t p1Pin, uint8_t p2Pin)
       pump1On(false),
       pump2On(false),
       alternatePump(false),
-      lastSwitchTime(0) {
+      lastSwitchTime(0),
+      bothPumpsActive(false) {
 }
 
 void Compressor::begin() {
@@ -55,19 +56,26 @@ void Compressor::runAutoMode(float tankPressure) {
     if (tankPressure >= targetPressure) {
         setPump1(false);
         setPump2(false);
+        bothPumpsActive = false;
         return;
+    }
+
+    // Hysteresis for dual/single pump threshold:
+    // Turn both on when dropping below PUMP_BOTH_ON_THRESHOLD (70 PSI)
+    // Switch to single when rising above PUMP_BOTH_OFF_THRESHOLD (75 PSI)
+    if (tankPressure <= PUMP_BOTH_ON_THRESHOLD) {
+        bothPumpsActive = true;
+    } else if (tankPressure >= PUMP_BOTH_OFF_THRESHOLD) {
+        bothPumpsActive = false;
     }
 
     // Tank needs air
     if (tankPressure < TANK_MIN_PSI) {
-        // Below threshold - run both pumps for maximum fill rate
-        if (tankPressure <= PUMP_BOTH_ON_THRESHOLD) {
+        if (bothPumpsActive) {
             setPump1(true);
             setPump2(true);
-        }
-        // Above 70 PSI but below min - alternate pumps to reduce wear
-        else {
-            // Switch pumps periodically
+        } else {
+            // Alternate single pump to reduce wear
             if (currentTime - lastSwitchTime >= PUMP_SWITCH_INTERVAL) {
                 alternatePump = !alternatePump;
                 lastSwitchTime = currentTime;
@@ -85,7 +93,6 @@ void Compressor::runAutoMode(float tankPressure) {
     // Tank is in acceptable range (between MIN and target)
     // Keep topping off with alternating single pump
     else if (tankPressure < targetPressure) {
-        // Switch pumps periodically
         if (currentTime - lastSwitchTime >= PUMP_SWITCH_INTERVAL) {
             alternatePump = !alternatePump;
             lastSwitchTime = currentTime;

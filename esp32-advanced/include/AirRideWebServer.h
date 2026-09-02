@@ -69,6 +69,7 @@ class AirRideWebServer {
     // Level mode
     LevelMode levelMode;
     unsigned long lastLevelAdjust;
+    unsigned long lastManualAction;  // Timestamp of last manual bag adjustment
 
     // Tank lockout hysteresis
     bool tankLockout;
@@ -77,21 +78,16 @@ class AirRideWebServer {
     bool hasStoredHeight;
     float lastHeight[NUM_BAGS];
 
-    // Time sync from browser
-    bool timeSynced;
-
     void handleRoot();
     void handleStatus();
     void handleBag();
-    void handleBagHold();  // New: hold button release
+    void handleBagHold();  // Hold button release
     void handlePreset();
     void handleLevel();
     void handleSaveHeight();
     void handleRestoreHeight();
     void handleTimeSync();
     void handleNotFound();
-
-    String getHtmlPage();
 };
 
 #endif // AIRRIDE_WEBSERVER_H

@@ -468,14 +468,28 @@ void printHelp() {
     Serial.println("----------------");
 }
 
+// Wait for next serial byte with timeout (non-blocking)
+// Returns -1 if timeout, otherwise the byte read
+int waitSerialByte(unsigned long timeoutMs = 100) {
+    unsigned long start = millis();
+    while (!Serial.available()) {
+        if (millis() - start > timeoutMs) {
+            return -1;
+        }
+        yield();  // Let other tasks run
+    }
+    return Serial.read();
+}
+
 void processSerialCommand() {
     char cmd = Serial.read();
 
     switch (cmd) {
         case 'I':
         case 'i': {
-            while (!Serial.available()) { delay(1); }
-            int bagNum = Serial.read() - '0';
+            int c = waitSerialByte();
+            if (c < 0) break;
+            int bagNum = c - '0';
             if (bagNum >= 0 && bagNum < NUM_BAGS) {
                 if (!webServer.isTankLockout()) {
                     bags[bagNum].inflate();
@@ -490,8 +504,9 @@ void processSerialCommand() {
 
         case 'D':
         case 'd': {
-            while (!Serial.available()) { delay(1); }
-            int bagNum = Serial.read() - '0';
+            int c = waitSerialByte();
+            if (c < 0) break;
+            int bagNum = c - '0';
             if (bagNum >= 0 && bagNum < NUM_BAGS) {
                 bags[bagNum].deflate();
                 Serial.print("Deflating ");
@@ -502,8 +517,9 @@ void processSerialCommand() {
 
         case 'H':
         case 'h': {
-            while (!Serial.available()) { delay(1); }
-            int bagNum = Serial.read() - '0';
+            int c = waitSerialByte();
+            if (c < 0) break;
+            int bagNum = c - '0';
             if (bagNum >= 0 && bagNum < NUM_BAGS) {
                 bags[bagNum].hold();
                 Serial.print("Holding ");
@@ -520,8 +536,9 @@ void processSerialCommand() {
 
         case 'L':
         case 'l': {
-            while (!Serial.available()) { delay(1); }
-            int mode = Serial.read() - '0';
+            int c = waitSerialByte();
+            if (c < 0) break;
+            int mode = c - '0';
             if (mode >= 0 && mode <= 3) {
                 webServer.setLevelMode((LevelMode)mode);
                 Serial.print("Level mode: ");
@@ -538,11 +555,13 @@ void processSerialCommand() {
         case 'M':
         case 'm': {
             // Maintenance reset: MR1 or MR2
-            while (!Serial.available()) { delay(1); }
-            char subCmd = Serial.read();
+            int c = waitSerialByte();
+            if (c < 0) break;
+            char subCmd = (char)c;
             if (subCmd == 'R' || subCmd == 'r') {
-                while (!Serial.available()) { delay(1); }
-                char pumpNum = Serial.read();
+                int c2 = waitSerialByte();
+                if (c2 < 0) break;
+                char pumpNum = (char)c2;
                 if (pumpNum == '1') {
                     compressor.resetPump1Runtime();
                 } else if (pumpNum == '2') {
@@ -628,8 +647,9 @@ void processSerialCommand() {
         case 'T':
         case 't': {
             // Set bag target: T<bag><psi> e.g. T080 = bag 0 target 80 PSI
-            while (!Serial.available()) { delay(1); }
-            int bagNum = Serial.read() - '0';
+            int c = waitSerialByte();
+            if (c < 0) break;
+            int bagNum = c - '0';
             if (bagNum >= 0 && bagNum < NUM_BAGS) {
                 int psi = 0;
                 delay(10); // Wait for digits
@@ -672,8 +692,9 @@ void processSerialCommand() {
         case 'R':
         case 'r': {
             // Apply preset: R0=Lay, R1=Cruise, R2=Max
-            while (!Serial.available()) { delay(1); }
-            int presetNum = Serial.read() - '0';
+            int c = waitSerialByte();
+            if (c < 0) break;
+            int presetNum = c - '0';
             if (presetNum >= 0 && presetNum < NUM_PRESETS) {
                 webServer.applyPreset(presetNum);
                 Serial.print("Preset ");

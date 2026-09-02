@@ -49,6 +49,7 @@ class Compressor {
     // Alternating pump logic
     bool alternatePump;          // Which pump to use when alternating (false=pump1, true=pump2)
     unsigned long lastSwitchTime;
+    bool bothPumpsActive;        // Hysteresis state for dual/single pump threshold
 
     void setPump1(bool on);
     void setPump2(bool on);

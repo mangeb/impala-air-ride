@@ -186,12 +186,9 @@ void AirBag::inflate() {
         return; // Safety: don't exceed max pressure
     }
 
-    // Check if in cooldown period
+    // Solenoid timeout lockout persists until target is changed or explicitly reset
     if (solenoidTimedOut) {
-        if (millis() - timeoutCooldownStart < SOLENOID_COOLDOWN_MS) {
-            return; // Still in cooldown
-        }
-        solenoidTimedOut = false; // Cooldown complete
+        return;
     }
 
     // RideTech Big Red: Open inflate solenoid, close deflate
@@ -205,12 +202,9 @@ void AirBag::inflate() {
 }
 
 void AirBag::deflate() {
-    // Check if in cooldown period
+    // Solenoid timeout lockout persists until target is changed or explicitly reset
     if (solenoidTimedOut) {
-        if (millis() - timeoutCooldownStart < SOLENOID_COOLDOWN_MS) {
-            return; // Still in cooldown
-        }
-        solenoidTimedOut = false; // Cooldown complete
+        return;
     }
 
     // RideTech Big Red: Close inflate solenoid, open deflate
@@ -235,11 +229,11 @@ void AirBag::setTargetPressure(float psi) {
     // Clamp to safe range
     if (psi < MIN_BAG_PSI) psi = MIN_BAG_PSI;
     if (psi > MAX_BAG_PSI) psi = MAX_BAG_PSI;
+    // Clear solenoid timeout lockout on new target (user intent to retry)
+    if (psi != targetPressure && solenoidTimedOut) {
+        resetSolenoidTimeout();
+    }
     targetPressure = psi;
-}
-
-bool AirBag::isAtTarget(float tolerance) const {
-    return abs(currentPressure - targetPressure) <= tolerance;
 }
 
 void AirBag::checkSolenoidTimeout() {

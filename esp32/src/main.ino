@@ -240,14 +240,28 @@ void printHelp() {
     Serial.println("----------------");
 }
 
+// Wait for next serial byte with timeout (non-blocking)
+// Returns -1 if timeout, otherwise the byte read
+int waitSerialByte(unsigned long timeoutMs = 100) {
+    unsigned long start = millis();
+    while (!Serial.available()) {
+        if (millis() - start > timeoutMs) {
+            return -1;
+        }
+        yield();  // Let other tasks run
+    }
+    return Serial.read();
+}
+
 void processSerialCommand() {
     char cmd = Serial.read();
 
     switch (cmd) {
         case 'I':
         case 'i': {
-            while (!Serial.available()) { delay(1); }
-            int bagNum = Serial.read() - '0';
+            int c = waitSerialByte();
+            if (c < 0) break;
+            int bagNum = c - '0';
             if (bagNum >= 0 && bagNum < NUM_BAGS) {
                 if (tankPressure >= TANK_CUTOFF_PSI) {
                     bags[bagNum].inflate();
@@ -262,8 +276,9 @@ void processSerialCommand() {
 
         case 'D':
         case 'd': {
-            while (!Serial.available()) { delay(1); }
-            int bagNum = Serial.read() - '0';
+            int c = waitSerialByte();
+            if (c < 0) break;
+            int bagNum = c - '0';
             if (bagNum >= 0 && bagNum < NUM_BAGS) {
                 bags[bagNum].deflate();
                 Serial.print("Deflating ");
@@ -274,8 +289,9 @@ void processSerialCommand() {
 
         case 'H':
         case 'h': {
-            while (!Serial.available()) { delay(1); }
-            int bagNum = Serial.read() - '0';
+            int c = waitSerialByte();
+            if (c < 0) break;
+            int bagNum = c - '0';
             if (bagNum >= 0 && bagNum < NUM_BAGS) {
                 bags[bagNum].hold();
                 Serial.print("Holding ");

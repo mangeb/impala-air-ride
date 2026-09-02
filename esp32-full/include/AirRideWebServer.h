@@ -76,6 +76,7 @@ class AirRideWebServer {
     // Level mode
     LevelMode levelMode;
     unsigned long lastLevelAdjust;
+    unsigned long lastManualAction;  // Timestamp of last manual bag adjustment
 
     // Tank lockout hysteresis
     bool tankLockout;

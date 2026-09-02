@@ -101,7 +101,7 @@
 
 // Pump operation thresholds
 #define PUMP_BOTH_ON_THRESHOLD  70.0   // Both pumps run below this PSI
-#define PUMP_ALTERNATE_ABOVE    70.0   // Single pump alternates above this PSI
+#define PUMP_BOTH_OFF_THRESHOLD 75.0   // Switch to single pump above this (hysteresis)
 
 // Tank safety with hysteresis
 #define TANK_CUTOFF_PSI         60.0   // Stop bag inflation if tank below this
@@ -156,10 +156,8 @@
 #define EEPROM_ADDR_LAST_FR     8
 #define EEPROM_ADDR_LAST_RL     12
 #define EEPROM_ADDR_LAST_RR     16
-#define EEPROM_ADDR_PRESET1     20     // Custom preset 1 (16 bytes)
-#define EEPROM_ADDR_PRESET2     36     // Custom preset 2 (16 bytes)
-#define EEPROM_ADDR_PRESET3     52     // Custom preset 3 (16 bytes)
-#define EEPROM_ADDR_PUMP_HOURS  68     // Pump runtime hours (float)
+#define EEPROM_ADDR_PUMP1_HOURS 20     // Pump 1 runtime hours (float)
+#define EEPROM_ADDR_PUMP2_HOURS 24     // Pump 2 runtime hours (float)
 
 // ============================================
 // RELAY CONFIGURATION
@@ -185,14 +183,6 @@
 #define REAR_LEFT   2
 #define REAR_RIGHT  3
 #define NUM_BAGS    4
-
-// ============================================
-// UI HOLD BUTTON TIMING
-// ============================================
-
-#define HOLD_DEBOUNCE_MS        50     // Button debounce time
-#define HOLD_REPEAT_DELAY_MS    500    // Initial delay before repeat
-#define HOLD_REPEAT_RATE_MS     100    // Repeat rate when held
 
 // ============================================
 // DEMO / BENCH TEST MODE

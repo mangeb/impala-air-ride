@@ -70,8 +70,7 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
       compressor(c),
       tankPressure(tp),
       server(80),
-      wifiReady(false),
-      timeSynced(false) {
+      wifiReady(false) {
 }
 
 void AirRideWebServer::begin() {
@@ -183,7 +182,6 @@ void AirRideWebServer::handleTimeSync() {
             tv.tv_sec = epoch;
             tv.tv_usec = 0;
             settimeofday(&tv, NULL);
-            timeSynced = true;
 
             struct tm timeinfo;
             localtime_r(&tv.tv_sec, &timeinfo);
@@ -200,6 +198,4 @@ void AirRideWebServer::handleNotFound() {
     server.send(404, "text/plain", "Not Found");
 }
 
-String AirRideWebServer::getHtmlPage() {
-    return String(HTML_PAGE);
-}
+

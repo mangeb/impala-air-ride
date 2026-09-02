@@ -7,7 +7,9 @@ AirBag::AirBag(uint8_t pressurePin, uint8_t inflatePin, uint8_t deflatePin, cons
       bagName(name),
       currentPressure(0.0),
       targetPressure(0.0),
-      state(VALVE_HOLD) {
+      state(VALVE_HOLD),
+      solenoidOnStartTime(0),
+      solenoidTimedOut(false) {
 }
 
 void AirBag::begin() {
@@ -26,6 +28,9 @@ void AirBag::begin() {
 
 void AirBag::update() {
     currentPressure = readPressure();
+
+    // Check solenoid timeout
+    checkSolenoidTimeout();
 
     // Safety checks - stop if at limits
     if (state == VALVE_INFLATE && isAtMaxPressure()) {
@@ -81,18 +86,34 @@ void AirBag::inflate() {
         return; // Safety: don't exceed max pressure
     }
 
+    // Solenoid timeout lockout persists until target is changed
+    if (solenoidTimedOut) {
+        return;
+    }
+
     // RideTech Big Red: Open inflate solenoid, close deflate
     digitalWrite(deflateSolenoidPin, RELAY_OFF);  // Close deflate first
     digitalWrite(inflateSolenoidPin, RELAY_ON);   // Open inflate
+
+    if (state != VALVE_INFLATE) {
+        solenoidOnStartTime = millis();
+    }
     state = VALVE_INFLATE;
 }
 
 void AirBag::deflate() {
-    // No minimum check for Big Red - allow full dump to 0 PSI for "Lay" mode
+    // Solenoid timeout lockout persists until target is changed
+    if (solenoidTimedOut) {
+        return;
+    }
 
     // RideTech Big Red: Close inflate solenoid, open deflate
     digitalWrite(inflateSolenoidPin, RELAY_OFF);  // Close inflate first
     digitalWrite(deflateSolenoidPin, RELAY_ON);   // Open deflate (dump)
+
+    if (state != VALVE_DEFLATE) {
+        solenoidOnStartTime = millis();
+    }
     state = VALVE_DEFLATE;
 }
 
@@ -101,15 +122,34 @@ void AirBag::hold() {
     digitalWrite(inflateSolenoidPin, RELAY_OFF);
     digitalWrite(deflateSolenoidPin, RELAY_OFF);
     state = VALVE_HOLD;
+    solenoidOnStartTime = 0;
 }
 
 void AirBag::setTargetPressure(float psi) {
     // Clamp to safe range
     if (psi < MIN_BAG_PSI) psi = MIN_BAG_PSI;
     if (psi > MAX_BAG_PSI) psi = MAX_BAG_PSI;
+    // Clear solenoid timeout lockout on new target (user intent to retry)
+    if (psi != targetPressure && solenoidTimedOut) {
+        solenoidTimedOut = false;
+    }
     targetPressure = psi;
 }
 
-bool AirBag::isAtTarget(float tolerance) const {
-    return abs(currentPressure - targetPressure) <= tolerance;
+void AirBag::checkSolenoidTimeout() {
+    if (state == VALVE_HOLD) {
+        return;
+    }
+
+    if (solenoidOnStartTime > 0 &&
+        millis() - solenoidOnStartTime > SOLENOID_TIMEOUT_MS) {
+        // Solenoid has been on too long - force hold
+        hold();
+        solenoidTimedOut = true;
+        Serial.print("WARNING: ");
+        Serial.print(bagName);
+        Serial.println(" solenoid timeout - valve locked out");
+    }
 }
+
+

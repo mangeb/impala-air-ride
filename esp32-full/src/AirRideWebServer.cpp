@@ -11,6 +11,7 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
       wifiReady(false),
       levelMode(LEVEL_OFF),
       lastLevelAdjust(0),
+      lastManualAction(0),
       tankLockout(false),
       pumpEnabled(true),
       timeSynced(false),
@@ -231,6 +232,7 @@ void AirRideWebServer::handleBag() {
         Serial.print(dir > 0 ? "INFLATE" : "DEFLATE");
 
         if (bagNum >= 0 && bagNum < NUM_BAGS) {
+            lastManualAction = millis();
             if (dir > 0) {
                 // Check tank lockout before inflating
                 if (!tankLockout) {
@@ -269,6 +271,7 @@ void AirRideWebServer::handleBagHold() {
     if (server.hasArg("n")) {
         int bagNum = server.arg("n").toInt();
         if (bagNum >= 0 && bagNum < NUM_BAGS) {
+            lastManualAction = millis();
             bags[bagNum].hold();
             float lockedPsi = bags[bagNum].getPressure();
             bags[bagNum].setTargetPressure(lockedPsi);
@@ -709,10 +712,10 @@ void AirRideWebServer::handleLeakStatus() {
         // Sensors that weren't pressurized are always "ok"
         if (leakSnapshotPressures[i] < LEAK_MIN_SNAPSHOT_PSI) {
             json += "0";
-        } else if (drop >= LEAK_ALERT_DROP_PSI && rate >= LEAK_ALERT_RATE_PSI_HR) {
-            json += "2"; // leak
-        } else if (drop >= LEAK_WARN_DROP_PSI && rate >= LEAK_WARN_RATE_PSI_HR) {
-            json += "1"; // warn
+        } else if (drop >= LEAK_ALERT_DROP_PSI || rate >= LEAK_ALERT_RATE_PSI_HR) {
+            json += "2"; // leak (either large total drop OR high rate)
+        } else if (drop >= LEAK_WARN_DROP_PSI || rate >= LEAK_WARN_RATE_PSI_HR) {
+            json += "1"; // warn (either moderate drop OR elevated rate)
         } else {
             json += "0"; // ok
         }
@@ -1153,6 +1156,10 @@ void AirRideWebServer::updateLevelMode() {
 
     unsigned long currentTime = millis();
     if (currentTime - lastLevelAdjust < LEVEL_ADJUST_STEP_MS) return;
+
+    // Pause level mode for 2 seconds after manual bag adjustment
+    if (lastManualAction > 0 && currentTime - lastManualAction < 2000) return;
+
     lastLevelAdjust = currentTime;
 
     float fl = bags[FRONT_LEFT].getPressure();

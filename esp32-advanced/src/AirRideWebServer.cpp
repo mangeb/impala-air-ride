@@ -161,9 +161,9 @@ AirRideWebServer::AirRideWebServer(AirBag* b, Compressor* c, float* tp)
       wifiReady(false),
       levelMode(LEVEL_OFF),
       lastLevelAdjust(0),
+      lastManualAction(0),
       tankLockout(false),
-      hasStoredHeight(false),
-      timeSynced(false) {
+      hasStoredHeight(false) {
     for (int i = 0; i < NUM_BAGS; i++) {
         lastHeight[i] = 0.0;
     }
@@ -289,6 +289,7 @@ void AirRideWebServer::handleBag() {
         int dir = server.arg("d").toInt();
 
         if (bagNum >= 0 && bagNum < NUM_BAGS) {
+            lastManualAction = millis();
             if (dir > 0) {
                 // Check tank lockout before inflating
                 if (!tankLockout) {
@@ -317,6 +318,7 @@ void AirRideWebServer::handleBagHold() {
     if (server.hasArg("n")) {
         int bagNum = server.arg("n").toInt();
         if (bagNum >= 0 && bagNum < NUM_BAGS) {
+            lastManualAction = millis();
             bags[bagNum].hold();
             // Set target to current pressure (stop auto-tracking)
             bags[bagNum].setTargetPressure(bags[bagNum].getPressure());
@@ -405,7 +407,6 @@ void AirRideWebServer::handleTimeSync() {
             tv.tv_sec = epoch;
             tv.tv_usec = 0;
             settimeofday(&tv, NULL);
-            timeSynced = true;
 
             struct tm timeinfo;
             localtime_r(&tv.tv_sec, &timeinfo);
@@ -481,6 +482,10 @@ void AirRideWebServer::updateLevelMode() {
 
     unsigned long currentTime = millis();
     if (currentTime - lastLevelAdjust < LEVEL_ADJUST_STEP_MS) return;
+
+    // Pause level mode for 2 seconds after manual bag adjustment
+    if (lastManualAction > 0 && currentTime - lastManualAction < 2000) return;
+
     lastLevelAdjust = currentTime;
 
     float fl = bags[FRONT_LEFT].getPressure();
@@ -526,6 +531,4 @@ void AirRideWebServer::updateLevelMode() {
     }
 }
 
-String AirRideWebServer::getHtmlPage() {
-    return String(HTML_PAGE);
-}
+

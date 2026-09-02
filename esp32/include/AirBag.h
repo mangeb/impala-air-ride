@@ -38,7 +38,9 @@ class AirBag {
     // Target pressure control
     void setTargetPressure(float psi);
     float getTargetPressure() const { return targetPressure; }
-    bool isAtTarget(float tolerance = 2.0) const;
+
+    // Solenoid timeout protection
+    bool isSolenoidTimedOut() const { return solenoidTimedOut; }
 
     const char* getName() const { return bagName; }
 
@@ -52,8 +54,13 @@ class AirBag {
     float targetPressure;
     ValveState state;
 
+    // Solenoid timeout tracking
+    unsigned long solenoidOnStartTime;
+    bool solenoidTimedOut;
+
     float resistanceFromVoltage(float voltage);
     float resistanceToPsi(float resistance);
+    void checkSolenoidTimeout();
 };
 
 #endif // AIRBAG_H

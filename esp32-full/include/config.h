@@ -101,7 +101,7 @@
 
 // Pump operation thresholds
 #define PUMP_BOTH_ON_THRESHOLD  70.0   // Both pumps run below this PSI
-#define PUMP_ALTERNATE_ABOVE    70.0   // Single pump alternates above this PSI
+#define PUMP_BOTH_OFF_THRESHOLD 75.0   // Switch to single pump above this (hysteresis)
 
 // Tank safety with hysteresis
 #define TANK_CUTOFF_PSI         60.0   // Stop bag inflation if tank below this
@@ -156,16 +156,17 @@
 #define EEPROM_ADDR_PRESET1     20     // Custom preset 1 (16 bytes: 4x float)
 #define EEPROM_ADDR_PRESET2     36     // Custom preset 2 (16 bytes: 4x float)
 #define EEPROM_ADDR_PRESET3     52     // Custom preset 3 (16 bytes: 4x float)
-#define EEPROM_ADDR_PUMP_HOURS  68     // Pump runtime hours (float)
+#define EEPROM_ADDR_PUMP1_HOURS 68     // Pump 1 runtime hours (float)
+#define EEPROM_ADDR_PUMP2_HOURS 72     // Pump 2 runtime hours (float)
 
 // Leak monitor EEPROM (25 bytes: flag + timestamp + 5 pressures)
-#define EEPROM_ADDR_LEAK_FLAG       72  // Valid flag (1 byte, 0xAA)
-#define EEPROM_ADDR_LEAK_TIME       73  // Snapshot epoch (uint32_t, 4 bytes)
-#define EEPROM_ADDR_LEAK_PRESSURES  77  // FL,FR,RL,RR,Tank (5 floats, 20 bytes)
+#define EEPROM_ADDR_LEAK_FLAG       76  // Valid flag (1 byte, 0xAA)
+#define EEPROM_ADDR_LEAK_TIME       77  // Snapshot epoch (uint32_t, 4 bytes)
+#define EEPROM_ADDR_LEAK_PRESSURES  81  // FL,FR,RL,RR,Tank (5 floats, 20 bytes)
 
 // Tank maintenance timer EEPROM (5 bytes: flag + last service epoch)
-#define EEPROM_ADDR_TANK_MAINT_FLAG  97  // Valid flag (1 byte, 0xBB)
-#define EEPROM_ADDR_TANK_MAINT_EPOCH 98  // Last service epoch (uint32_t, 4 bytes)
+#define EEPROM_ADDR_TANK_MAINT_FLAG  101  // Valid flag (1 byte, 0xBB)
+#define EEPROM_ADDR_TANK_MAINT_EPOCH 102  // Last service epoch (uint32_t, 4 bytes)
 
 // Sensor calibration EEPROM (1 flag + 5 sensors × 12 bytes = 61 bytes)
 // Per sensor: offset (float 4B) + gain (float 4B) + refResistor (float 4B)

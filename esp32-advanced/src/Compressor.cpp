@@ -10,10 +10,13 @@ Compressor::Compressor(uint8_t p1Pin, uint8_t p2Pin)
       pump2On(false),
       alternatePump(false),
       lastSwitchTime(0),
+      bothPumpsActive(false),
       pump1RuntimeMs(0),
       pump2RuntimeMs(0),
       lastRuntimeUpdate(0),
-      lastEEPROMSave(0) {
+      lastEEPROMSave(0),
+      lastSavedPump1Ms(0),
+      lastSavedPump2Ms(0) {
 }
 
 void Compressor::begin() {
@@ -74,19 +77,26 @@ void Compressor::runAutoMode(float tankPressure) {
     if (tankPressure >= targetPressure) {
         setPump1(false);
         setPump2(false);
+        bothPumpsActive = false;
         return;
+    }
+
+    // Hysteresis for dual/single pump threshold:
+    // Turn both on when dropping below PUMP_BOTH_ON_THRESHOLD (70 PSI)
+    // Switch to single when rising above PUMP_BOTH_OFF_THRESHOLD (75 PSI)
+    if (tankPressure <= PUMP_BOTH_ON_THRESHOLD) {
+        bothPumpsActive = true;
+    } else if (tankPressure >= PUMP_BOTH_OFF_THRESHOLD) {
+        bothPumpsActive = false;
     }
 
     // Tank needs air
     if (tankPressure < TANK_MIN_PSI) {
-        // Below threshold - run both pumps for maximum fill rate
-        if (tankPressure <= PUMP_BOTH_ON_THRESHOLD) {
+        if (bothPumpsActive) {
             setPump1(true);
             setPump2(true);
-        }
-        // Above 70 PSI but below min - alternate pumps to reduce wear
-        else {
-            // Switch pumps periodically
+        } else {
+            // Alternate single pump to reduce wear
             if (currentTime - lastSwitchTime >= PUMP_SWITCH_INTERVAL) {
                 alternatePump = !alternatePump;
                 lastSwitchTime = currentTime;
@@ -104,7 +114,6 @@ void Compressor::runAutoMode(float tankPressure) {
     // Tank is in acceptable range (between MIN and target)
     // Keep topping off with alternating single pump
     else if (tankPressure < targetPressure) {
-        // Switch pumps periodically
         if (currentTime - lastSwitchTime >= PUMP_SWITCH_INTERVAL) {
             alternatePump = !alternatePump;
             lastSwitchTime = currentTime;
@@ -167,18 +176,32 @@ void Compressor::updateRuntime() {
 void Compressor::loadRuntimeFromEEPROM() {
     // Check if EEPROM has valid data
     if (EEPROM.read(EEPROM_ADDR_MAGIC) == EEPROM_MAGIC) {
-        float hours;
-        EEPROM.get(EEPROM_ADDR_PUMP_HOURS, hours);
-        // Store total hours split evenly (simplified - could store both separately)
-        pump1RuntimeMs = (unsigned long)(hours * 3600000.0 / 2.0);
-        pump2RuntimeMs = (unsigned long)(hours * 3600000.0 / 2.0);
+        float hours1, hours2;
+        EEPROM.get(EEPROM_ADDR_PUMP1_HOURS, hours1);
+        EEPROM.get(EEPROM_ADDR_PUMP2_HOURS, hours2);
+        if (!isnan(hours1) && !isinf(hours1) && hours1 >= 0) {
+            pump1RuntimeMs = (unsigned long)(hours1 * 3600000.0);
+        }
+        if (!isnan(hours2) && !isinf(hours2) && hours2 >= 0) {
+            pump2RuntimeMs = (unsigned long)(hours2 * 3600000.0);
+        }
+        lastSavedPump1Ms = pump1RuntimeMs;
+        lastSavedPump2Ms = pump2RuntimeMs;
     }
 }
 
 void Compressor::saveRuntimeToEEPROM() {
-    float totalHours = (pump1RuntimeMs + pump2RuntimeMs) / 3600000.0;
-    EEPROM.put(EEPROM_ADDR_PUMP_HOURS, totalHours);
+    // Only write if values actually changed since last save
+    if (pump1RuntimeMs == lastSavedPump1Ms && pump2RuntimeMs == lastSavedPump2Ms) {
+        return;
+    }
+    float hours1 = pump1RuntimeMs / 3600000.0;
+    float hours2 = pump2RuntimeMs / 3600000.0;
+    EEPROM.put(EEPROM_ADDR_PUMP1_HOURS, hours1);
+    EEPROM.put(EEPROM_ADDR_PUMP2_HOURS, hours2);
     EEPROM.commit();
+    lastSavedPump1Ms = pump1RuntimeMs;
+    lastSavedPump2Ms = pump2RuntimeMs;
 }
 
 void Compressor::resetPump1Runtime() {

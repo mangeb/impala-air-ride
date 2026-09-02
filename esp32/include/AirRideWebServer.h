@@ -43,17 +43,12 @@ class AirRideWebServer {
     WebServer server;
     bool wifiReady;
 
-    // Time sync from browser
-    bool timeSynced;
-
     void handleRoot();
     void handleStatus();
     void handleBag();
     void handlePreset();
     void handleTimeSync();
     void handleNotFound();
-
-    String getHtmlPage();
 };
 
 #endif // AIRRIDE_WEBSERVER_H

@@ -39,7 +39,6 @@ class AirBag {
     // Target pressure control
     void setTargetPressure(float psi);
     float getTargetPressure() const { return targetPressure; }
-    bool isAtTarget(float tolerance = 2.0) const;
 
     // Solenoid timeout protection
     bool isSolenoidTimedOut() const { return solenoidTimedOut; }

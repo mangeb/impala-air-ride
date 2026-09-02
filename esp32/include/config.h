@@ -74,7 +74,7 @@
 
 // Pump operation thresholds
 #define PUMP_BOTH_ON_THRESHOLD  70.0   // Both pumps run below this PSI
-#define PUMP_ALTERNATE_ABOVE    70.0   // Single pump alternates above this PSI
+#define PUMP_BOTH_OFF_THRESHOLD 75.0   // Switch to single pump above this (hysteresis)
 
 // Tank safety
 #define TANK_CUTOFF_PSI         60.0   // Stop bag inflation if tank below this
@@ -85,6 +85,12 @@
 
 #define MIN_BAG_PSI             0.0    // Minimum safe bag pressure (0 for "Lay" mode)
 #define MAX_BAG_PSI             120.0  // Maximum safe bag pressure
+
+// ============================================
+// SOLENOID PROTECTION
+// ============================================
+
+#define SOLENOID_TIMEOUT_MS     30000  // Max continuous solenoid on time (30 sec)
 
 // ============================================
 // TIMING CONSTANTS
