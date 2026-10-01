@@ -77,8 +77,7 @@ void AirRideWebServer::begin() {
     Serial.println(" OK");
     Serial.print("SSID: ");
     Serial.println(WIFI_SSID);
-    Serial.print("Password: ");
-    Serial.println(WIFI_PASS);
+    Serial.println("WiFi password: [not displayed]");
     Serial.print("IP: ");
     Serial.println(WiFi.softAPIP());
 }

@@ -1,0 +1,23 @@
+contract_version = 1
+project_id = "impala-air-ride"
+display_name = "Impala Air Ride"
+
+[interface]
+build_command = ["./scripts/verify.sh"]
+health_command = ["./scripts/verify.sh", "--scan-only"]
+status_command = ["git", "status", "--short", "--branch"]
+dry_run_command = ["./scripts/verify.sh", "--scan-only"]
+
+[runtime]
+state_required = false
+config_layout = "Each firmware variant reads ignored include/secrets.h copied from include/secrets.example.h."
+
+[integrations]
+hermes_optional = true
+openclaw_required = false
+
+[security]
+credentials = "ignored-local-headers"
+private_runtime_data_outside_git = true
+firmware_upload_is_never_automatic = true
+credential_rotation_required_after_historical_exposure = true

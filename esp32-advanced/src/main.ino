@@ -390,11 +390,7 @@ void printHelp() {
     Serial.println("Memory: MS=save height, MH=restore height");
     Serial.println("Maint:  MR1=reset pump1, MR2=reset pump2 (after service)");
     Serial.println("Status: ?=help, P=print status");
-    Serial.print("WiFi: Connect to '");
-    Serial.print(WIFI_SSID);
-    Serial.print("' password '");
-    Serial.print(WIFI_PASS);
-    Serial.println("'");
+    Serial.println("WiFi credentials loaded from local secrets.h");
     Serial.print("OTA: ");
     Serial.print(OTA_HOSTNAME);
     Serial.println(".local");

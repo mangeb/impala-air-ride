@@ -1,1 +1,16 @@
+# PlatformIO build output
 .pio/
+**/.pio/
+
+# Local credential and machine-specific configuration
+**/include/secrets.h
+**/platformio_override.ini
+.env
+.env.*
+!.env.example
+
+# Editor and operating-system metadata
+.DS_Store
+**/.DS_Store
+.vscode/
+.idea/

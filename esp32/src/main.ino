@@ -232,11 +232,7 @@ void printHelp() {
     Serial.println("Pumps: PA=auto, PO=off, PB=both, P1=pump1, P2=pump2");
     Serial.println("       PT###=set target PSI (e.g. PT120)");
     Serial.println("Status: ?=help, P=print status");
-    Serial.print("WiFi: Connect to '");
-    Serial.print(WIFI_SSID);
-    Serial.print("' password '");
-    Serial.print(WIFI_PASS);
-    Serial.println("'");
+    Serial.println("WiFi credentials loaded from local secrets.h");
     Serial.println("----------------");
 }
 

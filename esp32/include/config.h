@@ -1,6 +1,10 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+// Local credentials live in ignored include/secrets.h.
+// Copy include/secrets.example.h and replace every placeholder before building.
+#include "secrets.h"
+
 // ============================================
 // ESP32 PIN DEFINITIONS
 // ============================================
@@ -35,8 +39,6 @@
 // ============================================
 // WIFI CONFIGURATION
 // ============================================
-#define WIFI_SSID               "Impala64"
-#define WIFI_PASS               "airride1964"
 #define WIFI_CHANNEL            1
 #define MAX_WIFI_CLIENTS        4
 
