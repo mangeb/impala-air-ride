@@ -27,9 +27,9 @@ AirBag bags[NUM_BAGS] = {
 };
 
 Compressor compressor(PUMP_1_PIN, PUMP_2_PIN);
+float tankPressure = 0.0;
 WebServer webServer(bags, &compressor, &tankPressure);
 
-float tankPressure = 0.0;
 unsigned long lastPressureRead = 0;
 
 // ============================================
@@ -223,7 +223,7 @@ void printHelp() {
     Serial.println(F("Pumps: PA=auto, PO=off, PB=both, P1=pump1, P2=pump2"));
     Serial.println(F("       PT###=set target PSI (e.g. PT120)"));
     Serial.println(F("Status: ?=help, P=print status"));
-    Serial.println(F("WiFi: Connect to 'Impala64' password 'airride1964'"));
+    Serial.println(F("WiFi: Connect to '<configured locally>' password '<configured locally>'"));
     Serial.println(F("----------------"));
 }
 

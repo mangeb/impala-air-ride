@@ -2,14 +2,15 @@
 #define WEBSERVER_H
 
 #include <Arduino.h>
-#include <WiFi.h>
+#include <WiFi101.h>
+
+// Local credentials live in ignored include/secrets.h.
+// Copy include/secrets.example.h and replace every placeholder before building.
+#include "secrets.h"
 #include "config.h"
 #include "AirBag.h"
 #include "Compressor.h"
 
-// WiFi AP credentials
-#define WIFI_SSID "Impala64"
-#define WIFI_PASS "airride1964"
 
 // Preset definitions (PSI values)
 struct Preset {

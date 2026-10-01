@@ -22,7 +22,7 @@ Air ride suspension controller for a 1964 Chevrolet Impala with WiFi mobile cont
 - **Platforms**: Arduino Mega 2560 / ESP32
 - **Language**: C/C++ (Arduino)
 - **IDE**: Arduino IDE / PlatformIO
-- **WiFi**: Built-in AP mode (SSID: Impala64)
+- **WiFi**: Built-in AP mode (SSID: <configured locally>)
 
 ## Project Structure
 
@@ -102,8 +102,9 @@ pio device monitor   # Serial monitor
 
 ## WiFi Control
 
-- **SSID**: Impala64
-- **Password**: airride1964
+- Copy the appropriate `include/secrets.example.h` to ignored `include/secrets.h`.
+- Set a unique AP SSID/password and, where applicable, a unique OTA password.
+- Never commit `secrets.h` or print passwords over serial.
 - **IP**: 192.168.4.1 (default AP IP)
 
 ### Presets
